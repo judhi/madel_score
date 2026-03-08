@@ -7,85 +7,100 @@
     <style>
         :root { --p1-color: #00e676; --p2-color: #ff5252; --bg: #000; }
         body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; }
-        
-        header { background: #111; padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        header { background: #111; padding: 10px 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         #brand { font-weight: bold; font-size: 18px; color: #fff; letter-spacing: 1px; }
-        
-        .toggle-btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 15px; font-size: 11px; cursor: pointer; }
+        .set-score-bar { background: #1a1a1a; padding: 8px; font-size: 20px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
+        .set-score-bar span { color: #fff; margin: 0 10px; }
+        .toggle-btn { background: #333; color: #fff; border: 1px solid #555; padding: 4px 10px; border-radius: 12px; font-size: 10px; cursor: pointer; outline: none; }
         .active { background: #fff; color: #000; font-weight: bold; }
-
         .court { flex: 1; display: flex; flex-direction: row; }
         .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; transition: background 0.1s; cursor: pointer; }
         .score { font-size: 22vw; font-weight: 900; line-height: 1; margin: 0; }
         .label { font-size: 3vw; color: #444; text-transform: uppercase; letter-spacing: 2px; }
         .divider { width: 2px; background: #222; }
-
         .p1-active { color: var(--p1-color) !important; }
         .p2-active { color: var(--p2-color) !important; }
         .win-text { font-size: 18vw !important; color: #fff !important; }
         .flash { background: #1a1a1a !important; }
-
-        #footer { background: #111; padding: 12px; font-size: 11px; color: #666; border-top: 1px solid #333; }
+        #footer { background: #111; padding: 10px; font-size: 10px; color: #666; border-top: 1px solid #333; }
     </style>
 </head>
 <body>
 
     <header>
         <span id="brand">MADEL SCORE by JPS</span>
-        <button id="modeToggle" class="toggle-btn" onclick="toggleMode()">MODE: DEUCE</button>
+        <button id="modeToggle" class="toggle-btn" onclick="toggleMode(this)">MODE: DEUCE</button>
     </header>
 
+    <div class="set-score-bar">
+        <div>YOU: <span id="set1">0</span></div>
+        <div>OPP: <span id="set2">0</span></div>
+    </div>
+
     <div class="court">
-        <div id="p1Area" class="pane" onclick="handleInput(1)">
+        <div id="p1Area" class="pane" onclick="handleTouch(1)">
             <div class="label">YOU</div>
             <div id="p1Disp" class="score p1-active">0</div>
         </div>
         <div class="divider"></div>
-        <div id="p2Area" class="pane" onclick="handleInput(2)">
+        <div id="p2Area" class="pane" onclick="handleTouch(2)">
             <div class="label">OPPONENT</div>
             <div id="p2Disp" class="score p2-active">0</div>
         </div>
     </div>
 
     <div id="footer">
-        <b>[ENTER] KEY:</b> 1x=You | 2x=Opp | 3x=Undo<br>
-        Tap screen once to enable the Umpire.
+        <b>[ENTER] KEY:</b> 1x=You | 2x=Opp | 3x=Undo | <b>Hold=Announce</b>
     </div>
 
     <script>
-        let p1 = 0, p2 = 0, history = [], isGoldenPoint = false, isGameOver = false;
-        let clickCount = 0, clickTimer = null;
+        let p1 = 0, p2 = 0, s1 = 0, s2 = 0;
+        let history = []; 
+        let isGoldenPoint = false, isGameOver = false, voiceUnlocked = false;
+        let clickCount = 0, clickTimer = null, pressTimer = null, isLongPress = false;
         const vals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
 
         function announce(text) {
+            if (!voiceUnlocked) return;
             synth.cancel();
             const msg = new SpeechSynthesisUtterance(text);
             const voices = synth.getVoices();
-            // Prioritize Female voices
             let femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google UK English Female') || v.name.includes('Samantha') || v.name.includes('Zira'));
-            
-            if (femaleVoice) {
-                msg.voice = femaleVoice;
-                msg.pitch = 1.0;
-            } else {
-                msg.pitch = 1.3; // Higher pitch fallback
-            }
+            if (femaleVoice) { msg.voice = femaleVoice; msg.pitch = 1.0; } else { msg.pitch = 1.3; }
             msg.rate = 1.1; 
             synth.speak(msg);
         }
 
-        function toggleMode() {
+        function toggleMode(btn) {
             if (p1 === 0 && p2 === 0) {
                 isGoldenPoint = !isGoldenPoint;
-                document.getElementById('modeToggle').innerText = isGoldenPoint ? "MODE: GOLDEN POINT" : "MODE: DEUCE";
-                document.getElementById('modeToggle').classList.toggle('active');
+                btn.innerText = isGoldenPoint ? "MODE: GOLDEN POINT" : "MODE: DEUCE";
+                btn.classList.toggle('active');
+                if (!voiceUnlocked) unlockVoice();
                 announce(`Scoring mode: ${isGoldenPoint ? 'Golden Point' : 'Deuce'}`);
             }
+            btn.blur(); // Remove focus so Enter doesn't trigger it again
+        }
+
+        function unlockVoice() {
+            if (voiceUnlocked) return;
+            voiceUnlocked = true;
+            announce("Umpire ready");
+        }
+
+        function getFullStatus() {
+            let gameScore = (p1 >= 3 && p2 >= 3 && !isGoldenPoint) ? 
+                (p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent")) :
+                `${vals[p1]}, ${vals[p2]}`;
+            let setScore = s1 === s2 ? `Set is ${s1} games all` : (s1 > s2 ? `You lead ${s1} games to ${s2}` : `Opponent leads ${s2} games to ${s1}`);
+            return `Score is ${gameScore}. ${setScore}.`;
         }
 
         function render() {
             const d1 = document.getElementById('p1Disp'), d2 = document.getElementById('p2Disp');
+            document.getElementById('set1').innerText = s1;
+            document.getElementById('set2').innerText = s2;
             d1.classList.remove('win-text'); d2.classList.remove('win-text');
 
             if (isGameOver) {
@@ -93,31 +108,29 @@
                 else { d2.innerText = "WIN"; d2.classList.add('win-text'); d1.innerText = (isGoldenPoint ? (vals[p1]==="Zero"?"0":vals[p1]) : "40"); }
                 return;
             }
-
             const deuce = (p1 >= 3 && p2 >= 3);
             if (!isGoldenPoint && deuce) {
-                if (p1 === p2) { d1.innerText = "40"; d2.innerText = "40"; announce("Deuce"); }
-                else if (p1 > p2) { d1.innerText = "AD"; d2.innerText = "40"; announce("Advantage You"); }
-                else { d1.innerText = "40"; d2.innerText = "AD"; announce("Advantage Opponent"); }
+                if (p1 === p2) { d1.innerText = "40"; d2.innerText = "40"; }
+                else if (p1 > p2) { d1.innerText = "AD"; d2.innerText = "40"; }
+                else { d1.innerText = "40"; d2.innerText = "AD"; }
             } else {
                 d1.innerText = (vals[p1] === "Zero" ? "0" : vals[p1]);
                 d2.innerText = (vals[p2] === "Zero" ? "0" : vals[p2]);
-                if (p1 + p2 > 0) announce(`${vals[p1]}, ${vals[p2]}`);
             }
         }
 
         function handleScore(player) {
-            history.push({p1, p2});
+            history.push({p1, p2, s1, s2, isGameOver});
             if (player === 1) p1++; else p2++;
+            if (isGoldenPoint) { if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; } }
+            else { if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
 
-            if (isGoldenPoint) {
-                if (p1 === 4 || p2 === 4) isGameOver = true;
+            if (isGameOver) {
+                announce(`Game to ${player === 1 ? 'you' : 'opponent'}. ${s1 === s2 ? 'All level' : (s1 > s2 ? s1 + ' games to ' + s2 : s2 + ' games to ' + s1)}`);
             } else {
-                if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) isGameOver = true;
+                if (!isGoldenPoint && p1 >= 3 && p2 >= 3) { announce(p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent")); }
+                else { announce(`${vals[p1]}, ${vals[p2]}`); }
             }
-
-            if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}`);
-            
             const areaId = player === 1 ? 'p1Area' : 'p2Area';
             document.getElementById(areaId).classList.add('flash');
             setTimeout(() => document.getElementById(areaId).classList.remove('flash'), 100);
@@ -127,28 +140,30 @@
         function undo() {
             if (history.length > 0) {
                 const last = history.pop();
-                p1 = last.p1; p2 = last.p2; isGameOver = false;
-                render();
-                announce(`Undo. Score is ${vals[p1]}, ${vals[p2]}`);
+                p1 = last.p1; p2 = last.p2; s1 = last.s1; s2 = last.s2; isGameOver = last.isGameOver;
+                render(); announce("Undo.");
             }
         }
 
-        function handleInput(player) {
-            if (isGameOver) {
-                p1 = 0; p2 = 0; history = []; isGameOver = false; render(); announce("New game");
-            } else {
-                handleScore(player);
-            }
+        function handleTouch(player) {
+            if (!voiceUnlocked) unlockVoice();
+            if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); } 
+            else { handleScore(player); }
         }
 
-        // TRIPLE CLICK ENGINE
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.repeat) {
+                if (!voiceUnlocked) unlockVoice();
+                isLongPress = false;
+                pressTimer = setTimeout(() => { isLongPress = true; announce(getFullStatus()); }, 700); 
+            }
+        });
+
         document.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
-                if (isGameOver) {
-                    p1 = 0; p2 = 0; history = []; isGameOver = false; render(); announce("New game");
-                    return;
-                }
-                
+                clearTimeout(pressTimer);
+                if (isLongPress) return;
+                if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); return; }
                 clickCount++;
                 if (clickTimer) clearTimeout(clickTimer);
                 clickTimer = setTimeout(() => {
@@ -156,11 +171,10 @@
                     else if (clickCount === 2) handleScore(2);
                     else if (clickCount >= 3) undo();
                     clickCount = 0;
-                }, 450); // 450ms window for triple clicking
+                }, 450);
             }
         });
 
-        window.addEventListener('click', () => { announce("Umpire ready"); }, { once: true });
         render();
     </script>
 </body>
