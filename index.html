@@ -7,21 +7,29 @@
     <style>
         :root { --p1-color: #00e676; --p2-color: #ff5252; --bg: #000; }
         body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; }
-        header { background: #111; padding: 10px 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        
+        header { background: #111; padding: 10px 15px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 8px; }
         #brand { font-weight: bold; font-size: 18px; color: #fff; letter-spacing: 1px; }
+        
+        .toolbar { display: flex; gap: 8px; width: 100%; justify-content: center; }
+        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 12px; font-size: 11px; cursor: pointer; outline: none; flex: 1; max-width: 100px; }
+        .btn:active { background: #555; }
+        .active-mode { background: #fff; color: #000; font-weight: bold; border-color: #fff; }
+
         .set-score-bar { background: #1a1a1a; padding: 8px; font-size: 20px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
         .set-score-bar span { color: #fff; margin: 0 10px; }
-        .toggle-btn { background: #333; color: #fff; border: 1px solid #555; padding: 4px 10px; border-radius: 12px; font-size: 10px; cursor: pointer; outline: none; }
-        .active { background: #fff; color: #000; font-weight: bold; }
+
         .court { flex: 1; display: flex; flex-direction: row; }
         .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; transition: background 0.1s; cursor: pointer; }
         .score { font-size: 22vw; font-weight: 900; line-height: 1; margin: 0; }
         .label { font-size: 3vw; color: #444; text-transform: uppercase; letter-spacing: 2px; }
         .divider { width: 2px; background: #222; }
+
         .p1-active { color: var(--p1-color) !important; }
         .p2-active { color: var(--p2-color) !important; }
         .win-text { font-size: 18vw !important; color: #fff !important; }
         .flash { background: #1a1a1a !important; }
+        
         #footer { background: #111; padding: 10px; font-size: 10px; color: #666; border-top: 1px solid #333; }
         .locked { opacity: 0.5; pointer-events: none; }
     </style>
@@ -30,7 +38,11 @@
 
     <header>
         <span id="brand">MADEL SCORE by JPS</span>
-        <button id="modeToggle" class="toggle-btn" onclick="toggleMode(this)">MODE: DEUCE</button>
+        <div class="toolbar">
+            <button id="modeToggle" class="btn" onclick="toggleMode(this)">MODE: DEUCE</button>
+            <button class="btn" onclick="uiUndo(this)">UNDO</button>
+            <button class="btn" onclick="uiAnnounce(this)">ANNOUNCE</button>
+        </div>
     </header>
 
     <div class="set-score-bar">
@@ -95,11 +107,23 @@
         function toggleMode(btn) {
             if (p1 === 0 && p2 === 0) {
                 isGoldenPoint = !isGoldenPoint;
-                btn.innerText = isGoldenPoint ? "MODE: GOLDEN POINT" : "MODE: DEUCE";
-                btn.classList.toggle('active');
+                btn.innerText = isGoldenPoint ? "GOLDEN PT" : "DEUCE";
+                btn.classList.toggle('active-mode');
                 if (!voiceUnlocked) unlockVoice();
                 else announce(`Scoring mode: ${isGoldenPoint ? 'Golden Point' : 'Deuce'}`);
             }
+            btn.blur();
+        }
+
+        function uiUndo(btn) {
+            if (!voiceUnlocked) unlockVoice();
+            undo();
+            btn.blur();
+        }
+
+        function uiAnnounce(btn) {
+            if (!voiceUnlocked) unlockVoice();
+            else announce(getFullStatus());
             btn.blur();
         }
 
@@ -192,7 +216,7 @@
                     else if (clickCount === 3) undo();
                     else if (clickCount >= 4) announce(getFullStatus());
                     clickCount = 0;
-                }, 500); // 0.5s window to capture 4 clicks comfortably
+                }, 500);
             }
         });
 
