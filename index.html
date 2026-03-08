@@ -42,7 +42,7 @@
             <button id="modeToggle" class="btn" onclick="toggleMode(this)">MODE: DEUCE</button>
             <button class="btn" onclick="uiUndo(this)">UNDO</button>
             <button class="btn" onclick="uiAnnounce(this)">REPORT</button>
-            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">MAX</button>
+            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">FULL</button>
         </div>
     </header>
 
@@ -81,7 +81,7 @@
         function toggleFullscreen(btn) {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
-                    alert(`Error attempting to enable full-screen mode: ${err.message}`);
+                    console.log(`Error attempting to enable full-screen mode: ${err.message}`);
                 });
                 btn.innerText = "EXIT";
             } else {
@@ -92,10 +92,9 @@
             if (!voiceUnlocked) unlockVoice();
         }
 
-        // Handle case where user exits via Android system back/swipe
         document.addEventListener('fullscreenchange', () => {
             const btn = document.getElementById('fsBtn');
-            btn.innerText = document.fullscreenElement ? "EXIT" : "MAX";
+            btn.innerText = document.fullscreenElement ? "EXIT" : "FULL";
         });
 
         function announce(text) {
