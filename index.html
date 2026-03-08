@@ -51,14 +51,14 @@
     </div>
 
     <div id="footer">
-        <b>[ENTER] KEY:</b> 1x=You | 2x=Opp | 3x=Undo | <b>Hold=Announce</b>
+        <b>[ENTER]:</b> 1x=You | 2x=Opp | 3x=Undo | 4x=Report
     </div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0;
         let history = []; 
         let isGoldenPoint = false, isGameOver = false, voiceUnlocked = false;
-        let clickCount = 0, clickTimer = null, pressTimer = null, isLongPressActive = false;
+        let clickCount = 0, clickTimer = null;
         let isInputLocked = false;
 
         const vals = ["Zero", "15", "30", "40", "AD"];
@@ -76,11 +76,11 @@
         }
 
         function unlockVoice() {
-            if (voiceUnlocked) return false; // Already unlocked
+            if (voiceUnlocked) return false;
             voiceUnlocked = true;
             announce("Umpire ready");
             lockInput();
-            return true; // Successfully performed wake-up
+            return true;
         }
 
         function lockInput() {
@@ -165,8 +165,7 @@
 
         function handleInput(player) {
             if (isInputLocked) return;
-            if (!voiceUnlocked) { unlockVoice(); return; } // Wake up only
-            
+            if (!voiceUnlocked) { unlockVoice(); return; }
             if (isGameOver) { 
                 p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); 
                 lockInput(); 
@@ -175,25 +174,9 @@
             }
         }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.repeat) {
-                if (isInputLocked) return;
-                isLongPressActive = false;
-                pressTimer = setTimeout(() => { 
-                    isLongPressActive = true; 
-                    if (voiceUnlocked) announce(getFullStatus());
-                    else unlockVoice(); 
-                }, 700); 
-            }
-        });
-
         document.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
-                clearTimeout(pressTimer);
-                if (isLongPressActive) { isLongPressActive = false; return; }
                 if (isInputLocked) return;
-
-                // Wake up check for Enter key
                 if (!voiceUnlocked) { unlockVoice(); return; }
 
                 if (isGameOver) { 
@@ -206,9 +189,10 @@
                 clickTimer = setTimeout(() => {
                     if (clickCount === 1) handleScore(1);
                     else if (clickCount === 2) handleScore(2);
-                    else if (clickCount >= 3) undo();
+                    else if (clickCount === 3) undo();
+                    else if (clickCount >= 4) announce(getFullStatus());
                     clickCount = 0;
-                }, 450);
+                }, 500); // 0.5s window to capture 4 clicks comfortably
             }
         });
 
