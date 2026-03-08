@@ -23,6 +23,7 @@
         .win-text { font-size: 18vw !important; color: #fff !important; }
         .flash { background: #1a1a1a !important; }
         #footer { background: #111; padding: 10px; font-size: 10px; color: #666; border-top: 1px solid #333; }
+        .locked { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -37,13 +38,13 @@
         <div>OPP: <span id="set2">0</span></div>
     </div>
 
-    <div class="court">
-        <div id="p1Area" class="pane" onclick="handleTouch(1)">
+    <div id="courtArea" class="court">
+        <div id="p1Area" class="pane" onclick="handleInput(1)">
             <div class="label">YOU</div>
             <div id="p1Disp" class="score p1-active">0</div>
         </div>
         <div class="divider"></div>
-        <div id="p2Area" class="pane" onclick="handleTouch(2)">
+        <div id="p2Area" class="pane" onclick="handleInput(2)">
             <div class="label">OPPONENT</div>
             <div id="p2Disp" class="score p2-active">0</div>
         </div>
@@ -57,7 +58,9 @@
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0;
         let history = []; 
         let isGoldenPoint = false, isGameOver = false, voiceUnlocked = false;
-        let clickCount = 0, clickTimer = null, pressTimer = null, isLongPress = false;
+        let clickCount = 0, clickTimer = null, pressTimer = null, isLongPressActive = false;
+        let isInputLocked = false;
+
         const vals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
 
@@ -72,21 +75,32 @@
             synth.speak(msg);
         }
 
+        function unlockVoice() {
+            if (voiceUnlocked) return false; // Already unlocked
+            voiceUnlocked = true;
+            announce("Umpire ready");
+            lockInput();
+            return true; // Successfully performed wake-up
+        }
+
+        function lockInput() {
+            isInputLocked = true;
+            document.getElementById('courtArea').classList.add('locked');
+            setTimeout(() => {
+                isInputLocked = false;
+                document.getElementById('courtArea').classList.remove('locked');
+            }, 1000);
+        }
+
         function toggleMode(btn) {
             if (p1 === 0 && p2 === 0) {
                 isGoldenPoint = !isGoldenPoint;
                 btn.innerText = isGoldenPoint ? "MODE: GOLDEN POINT" : "MODE: DEUCE";
                 btn.classList.toggle('active');
                 if (!voiceUnlocked) unlockVoice();
-                announce(`Scoring mode: ${isGoldenPoint ? 'Golden Point' : 'Deuce'}`);
+                else announce(`Scoring mode: ${isGoldenPoint ? 'Golden Point' : 'Deuce'}`);
             }
-            btn.blur(); // Remove focus so Enter doesn't trigger it again
-        }
-
-        function unlockVoice() {
-            if (voiceUnlocked) return;
-            voiceUnlocked = true;
-            announce("Umpire ready");
+            btn.blur();
         }
 
         function getFullStatus() {
@@ -120,6 +134,7 @@
         }
 
         function handleScore(player) {
+            if (isInputLocked) return;
             history.push({p1, p2, s1, s2, isGameOver});
             if (player === 1) p1++; else p2++;
             if (isGoldenPoint) { if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; } }
@@ -135,35 +150,57 @@
             document.getElementById(areaId).classList.add('flash');
             setTimeout(() => document.getElementById(areaId).classList.remove('flash'), 100);
             render();
+            lockInput();
         }
 
         function undo() {
+            if (isInputLocked) return;
             if (history.length > 0) {
                 const last = history.pop();
                 p1 = last.p1; p2 = last.p2; s1 = last.s1; s2 = last.s2; isGameOver = last.isGameOver;
                 render(); announce("Undo.");
+                lockInput();
             }
         }
 
-        function handleTouch(player) {
-            if (!voiceUnlocked) unlockVoice();
-            if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); } 
-            else { handleScore(player); }
+        function handleInput(player) {
+            if (isInputLocked) return;
+            if (!voiceUnlocked) { unlockVoice(); return; } // Wake up only
+            
+            if (isGameOver) { 
+                p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); 
+                lockInput(); 
+            } else { 
+                handleScore(player); 
+            }
         }
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.repeat) {
-                if (!voiceUnlocked) unlockVoice();
-                isLongPress = false;
-                pressTimer = setTimeout(() => { isLongPress = true; announce(getFullStatus()); }, 700); 
+                if (isInputLocked) return;
+                isLongPressActive = false;
+                pressTimer = setTimeout(() => { 
+                    isLongPressActive = true; 
+                    if (voiceUnlocked) announce(getFullStatus());
+                    else unlockVoice(); 
+                }, 700); 
             }
         });
 
         document.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
                 clearTimeout(pressTimer);
-                if (isLongPress) return;
-                if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); return; }
+                if (isLongPressActive) { isLongPressActive = false; return; }
+                if (isInputLocked) return;
+
+                // Wake up check for Enter key
+                if (!voiceUnlocked) { unlockVoice(); return; }
+
+                if (isGameOver) { 
+                    p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); 
+                    lockInput(); return; 
+                }
+
                 clickCount++;
                 if (clickTimer) clearTimeout(clickTimer);
                 clickTimer = setTimeout(() => {
