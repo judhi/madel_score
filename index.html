@@ -11,8 +11,8 @@
         header { background: #111; padding: 10px 15px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 8px; }
         #brand { font-weight: bold; font-size: 18px; color: #fff; letter-spacing: 1px; }
         
-        .toolbar { display: flex; gap: 8px; width: 100%; justify-content: center; }
-        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 12px; font-size: 11px; cursor: pointer; outline: none; flex: 1; max-width: 100px; }
+        .toolbar { display: flex; gap: 5px; width: 100%; justify-content: center; flex-wrap: wrap; }
+        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; outline: none; flex: 1; min-width: 70px; max-width: 90px; }
         .btn:active { background: #555; }
         .active-mode { background: #fff; color: #000; font-weight: bold; border-color: #fff; }
 
@@ -36,12 +36,13 @@
 </head>
 <body>
 
-    <header>
+    <header id="mainHeader">
         <span id="brand">MADEL SCORE by JPS</span>
         <div class="toolbar">
             <button id="modeToggle" class="btn" onclick="toggleMode(this)">MODE: DEUCE</button>
             <button class="btn" onclick="uiUndo(this)">UNDO</button>
-            <button class="btn" onclick="uiAnnounce(this)">ANNOUNCE</button>
+            <button class="btn" onclick="uiAnnounce(this)">REPORT</button>
+            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">MAX</button>
         </div>
     </header>
 
@@ -63,7 +64,7 @@
     </div>
 
     <div id="footer">
-        <b>[ENTER]:</b> 1x=You | 2x=Opp | 3x=Undo | 4x=Report
+        [ENTER]: 1x=You | 2x=Opp | 3x=Undo | 4x=Report
     </div>
 
     <script>
@@ -75,6 +76,27 @@
 
         const vals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
+
+        // --- FULLSCREEN LOGIC ---
+        function toggleFullscreen(btn) {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+                btn.innerText = "EXIT";
+            } else {
+                document.exitFullscreen();
+                btn.innerText = "MAX";
+            }
+            btn.blur();
+            if (!voiceUnlocked) unlockVoice();
+        }
+
+        // Handle case where user exits via Android system back/swipe
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fsBtn');
+            btn.innerText = document.fullscreenElement ? "EXIT" : "MAX";
+        });
 
         function announce(text) {
             if (!voiceUnlocked) return;
