@@ -25,7 +25,7 @@ Named after the author's Padel group **Madel - Minggu Padel** that plays every S
 
 ## How to Run
 
-Open the URL [http://judhi.github.io/madel_score/] and that's it!
+Open the URL [https://judhi.github.io/madel_score/] and that's it!
 
 ## How to Control
 
