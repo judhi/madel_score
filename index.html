@@ -26,7 +26,9 @@
         .p2-active { color: var(--p2-color) !important; }
         .win-text { font-size: 18vw !important; color: #fff !important; }
         .flash { background: #1a1a1a !important; }
-        #footer { background: #111; padding: 10px; font-size: 10px; color: #666; border-top: 1px solid #333; }
+        #footer { background: #111; padding: 8px; font-size: 10px; color: #666; border-top: 1px solid #333; }
+        #footer a { color: #888; text-decoration: none; font-weight: bold; }
+        #footer a:hover { color: #fff; }
         .locked { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
@@ -72,7 +74,8 @@
     </div>
 
     <div id="footer">
-        [1,2,3,4,5,0] Active | [9] Reload | [ENTER]: Multi-Click
+        [1,2,3,4,5,0] Keys | [9] Reload | [Enter] Multi-Click<br>
+        <a href="https://github.com/judhi/madel_score/" target="_blank">github.com/judhi/madel_score</a>
     </div>
 
     <script>
@@ -180,9 +183,7 @@
             document.getElementById('set1').innerText = s1;
             document.getElementById('set2').innerText = s2;
             d1.classList.remove('win-text'); d2.classList.remove('win-text');
-
             const isTennis = (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT');
-
             if (isGameOver) {
                 if (p1 > p2) {
                     d1.innerText = "WIN"; d1.classList.add('win-text');
@@ -193,7 +194,6 @@
                 }
                 return;
             }
-
             if (isTennis) {
                 const deuce = (p1 >= 3 && p2 >= 3);
                 if (currentMode === 'DEUCE' && deuce) {
@@ -213,7 +213,6 @@
             if (isInputLocked) return;
             history.push({p1, p2, s1, s2, isGameOver});
             if (player === 1) p1++; else p2++;
-
             if (currentMode === 'GOLDEN POINT') {
                 if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; }
             } else if (currentMode === 'DEUCE') {
@@ -222,13 +221,11 @@
                 let limit = parseInt(currentMode);
                 if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; }
             }
-
             if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}. Score ${s1}, ${s2}`);
             else if (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT') {
                 if (currentMode === 'DEUCE' && p1 >= 3 && p2 >= 3) announce(p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent"));
                 else announce(`${voiceVals[p1] || p1}, ${voiceVals[p2] || p2}`);
             } else announce(`${p1}, ${p2}`);
-
             const areaId = player === 1 ? 'p1Area' : 'p2Area';
             document.getElementById(areaId).classList.add('flash');
             setTimeout(() => document.getElementById(areaId).classList.remove('flash'), 100);
@@ -275,7 +272,6 @@
                 }, 500);
             }
         });
-        
         init();
     </script>
 </body>
