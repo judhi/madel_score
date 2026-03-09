@@ -47,10 +47,10 @@
     <header id="mainHeader">
         <span id="brand">MADEL SCORE by JPS</span>
         <div class="toolbar">
-            <button id="modeBtn" class="btn" onclick="openModal()">DEUCE</button>
+            <button id="modeBtn" class="btn" onclick="openModal()">DEUCE (0)</button>
             <button class="btn" onclick="uiUndo(this)">UNDO (3)</button>
             <button class="btn" onclick="uiAnnounce(this)">REPORT (4)</button>
-            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">FULL (F)</button>
+            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">FULL (5)</button>
         </div>
     </header>
 
@@ -72,7 +72,7 @@
     </div>
 
     <div id="footer">
-        [1,2,3,4,F,M] Keys Active | [ENTER]: Multi-Click Mode
+        [1,2,3,4,5,0] Active | [9] Reload | [ENTER]: Multi-Click
     </div>
 
     <script>
@@ -90,7 +90,7 @@
             const savedMode = localStorage.getItem('madel_mode');
             if (savedMode) {
                 currentMode = savedMode;
-                document.getElementById('modeBtn').innerText = savedMode;
+                document.getElementById('modeBtn').innerText = savedMode + " (0)";
             }
             render();
         }
@@ -105,7 +105,7 @@
         function selectMode(choice) {
             currentMode = choice;
             localStorage.setItem('madel_mode', choice);
-            document.getElementById('modeBtn').innerText = choice;
+            document.getElementById('modeBtn').innerText = choice + " (0)";
             closeModal();
             if (!voiceUnlocked) unlockVoice();
             else announce("Mode " + choice);
@@ -133,7 +133,7 @@
 
         document.addEventListener('fullscreenchange', () => {
             const btn = document.getElementById('fsBtn');
-            btn.innerText = document.fullscreenElement ? "EXIT (F)" : "FULL (F)";
+            btn.innerText = document.fullscreenElement ? "EXIT (5)" : "FULL (5)";
         });
 
         function announce(text) {
@@ -250,20 +250,21 @@
         }
 
         document.addEventListener('keyup', (e) => {
-            const key = e.key.toLowerCase();
+            const key = e.key;
             if (isInputLocked) return;
-            if (!voiceUnlocked) { unlockVoice(); return; }
 
-            // Dedicated Shortcuts
+            // Direct Shortcuts (even without voice unlock check, these will trigger unlock)
             if (key === '1') handleInput(1);
             else if (key === '2') handleInput(2);
-            else if (key === '3') undo();
-            else if (key === '4') announce(getFullStatus());
-            else if (key === 'f') toggleFullscreen();
-            else if (key === 'm') cycleMode();
+            else if (key === '3') uiUndo();
+            else if (key === '4') uiAnnounce();
+            else if (key === '5') toggleFullscreen();
+            else if (key === '0') cycleMode();
+            else if (key === '9') location.reload();
             
             // Universal Enter Key
-            else if (key === 'enter') {
+            else if (key.toLowerCase() === 'enter') {
+                if (!voiceUnlocked) { unlockVoice(); return; }
                 if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); lockInput(); return; }
                 clickCount++;
                 if (clickTimer) clearTimeout(clickTimer);
