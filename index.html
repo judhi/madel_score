@@ -15,7 +15,6 @@
         #modeModal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; }
         .modal-content { background: #222; padding: 20px; border-radius: 20px; border: 1px solid #444; width: 85%; max-width: 320px; }
         .modal-btn { background: #444; color: white; border: none; padding: 12px; margin: 5px 0; width: 100%; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; }
-        .modal-btn:active { background: #666; }
         .set-score-bar { background: #1a1a1a; padding: 8px; font-size: 20px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
         .set-score-bar span { color: #fff; margin: 0 10px; }
         .court { flex: 1; display: flex; flex-direction: row; }
@@ -49,9 +48,9 @@
         <span id="brand">MADEL SCORE by JPS</span>
         <div class="toolbar">
             <button id="modeBtn" class="btn" onclick="openModal()">DEUCE</button>
-            <button class="btn" onclick="uiUndo(this)">UNDO</button>
-            <button class="btn" onclick="uiAnnounce(this)">REPORT</button>
-            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">FULL</button>
+            <button class="btn" onclick="uiUndo(this)">UNDO (3)</button>
+            <button class="btn" onclick="uiAnnounce(this)">REPORT (4)</button>
+            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">FULL (F)</button>
         </div>
     </header>
 
@@ -62,31 +61,31 @@
 
     <div id="courtArea" class="court">
         <div id="p1Area" class="pane" onclick="handleInput(1)">
-            <div class="label">YOU</div>
+            <div class="label">YOU (1)</div>
             <div id="p1Disp" class="score p1-active">0</div>
         </div>
         <div class="divider"></div>
         <div id="p2Area" class="pane" onclick="handleInput(2)">
-            <div class="label">OPPONENT</div>
+            <div class="label">OPPONENT (2)</div>
             <div id="p2Disp" class="score p2-active">0</div>
         </div>
     </div>
 
     <div id="footer">
-        [ENTER]: 1x=You | 2x=Opp | 3x=Undo | 4x=Report
+        [1,2,3,4,F,M] Keys Active | [ENTER]: Multi-Click Mode
     </div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0;
         let history = []; 
         let currentMode = 'DEUCE'; 
-        let isGameOver = false, voiceUnlocked = false;
-        let clickCount = 0, clickTimer = null, isInputLocked = false;
+        const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
+        let isGameOver = false, voiceUnlocked = false, isInputLocked = false;
+        let clickCount = 0, clickTimer = null;
 
         const vals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
 
-        // Initialize from storage or default
         function init() {
             const savedMode = localStorage.getItem('madel_mode');
             if (savedMode) {
@@ -105,24 +104,37 @@
 
         function selectMode(choice) {
             currentMode = choice;
-            localStorage.setItem('madel_mode', choice); // Save choice
+            localStorage.setItem('madel_mode', choice);
             document.getElementById('modeBtn').innerText = choice;
             closeModal();
             if (!voiceUnlocked) unlockVoice();
             else announce("Mode " + choice);
         }
 
-        function toggleFullscreen(btn) {
+        function cycleMode() {
+            if (p1 !== 0 || p2 !== 0) {
+                announce("Reset score to change mode.");
+                return;
+            }
+            let idx = modes.indexOf(currentMode);
+            let nextIdx = (idx + 1) % modes.length;
+            selectMode(modes[nextIdx]);
+        }
+
+        function toggleFullscreen(btn = document.getElementById('fsBtn')) {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => { console.log(err); });
-                btn.innerText = "EXIT";
             } else {
                 document.exitFullscreen();
-                btn.innerText = "FULL";
             }
-            btn.blur();
+            if (btn) btn.blur();
             if (!voiceUnlocked) unlockVoice();
         }
+
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fsBtn');
+            btn.innerText = document.fullscreenElement ? "EXIT (F)" : "FULL (F)";
+        });
 
         function announce(text) {
             if (!voiceUnlocked) return;
@@ -152,8 +164,8 @@
             }, 1000);
         }
 
-        function uiUndo(btn) { if (!voiceUnlocked) unlockVoice(); undo(); btn.blur(); }
-        function uiAnnounce(btn) { if (!voiceUnlocked) unlockVoice(); else announce(getFullStatus()); btn.blur(); }
+        function uiUndo(btn) { if (!voiceUnlocked) unlockVoice(); undo(); if(btn) btn.blur(); }
+        function uiAnnounce(btn) { if (!voiceUnlocked) unlockVoice(); else announce(getFullStatus()); if(btn) btn.blur(); }
 
         function getFullStatus() {
             let gameScore = "";
@@ -238,9 +250,20 @@
         }
 
         document.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') {
-                if (isInputLocked) return;
-                if (!voiceUnlocked) { unlockVoice(); return; }
+            const key = e.key.toLowerCase();
+            if (isInputLocked) return;
+            if (!voiceUnlocked) { unlockVoice(); return; }
+
+            // Dedicated Shortcuts
+            if (key === '1') handleInput(1);
+            else if (key === '2') handleInput(2);
+            else if (key === '3') undo();
+            else if (key === '4') announce(getFullStatus());
+            else if (key === 'f') toggleFullscreen();
+            else if (key === 'm') cycleMode();
+            
+            // Universal Enter Key
+            else if (key === 'enter') {
                 if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); lockInput(); return; }
                 clickCount++;
                 if (clickTimer) clearTimeout(clickTimer);
@@ -254,7 +277,7 @@
             }
         });
         
-        init(); // Run on startup
+        init();
     </script>
 </body>
 </html>
