@@ -20,6 +20,7 @@ Named after the author's Padel group **Madel - Minggu Padel** that plays every S
     - **16/24/32 Points**: Total point-based scoring "Americano" style.
 - **Persistent Memory**: Remembers your scoring mode even after a page refresh.
 - **Immersive View**: One-click Fullscreen (MAX) mode to remove browser clutter.
+- **Open Source**: feel free to use, modify, distribute, make money, whatever you like as long as to make people happy.
 
 ---
 
@@ -54,6 +55,9 @@ Just touch the buttons or score on the screen.
 ---
 
 ## 🛠️ Technical Details
+
+![Interface](images/Madel_score_interface.png)
+
 - **Collaboration**: Google Gemini to generate the codes based on the author's vision
 - **Engine**: Pure HTML5, CSS3, and Vanilla JavaScript.
 - **API**: Utilizes the **Web Speech API** for professional vocal synthesis and the **Fullscreen API** for immersive display.
