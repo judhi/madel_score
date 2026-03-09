@@ -83,7 +83,8 @@
         let isGameOver = false, voiceUnlocked = false, isInputLocked = false;
         let clickCount = 0, clickTimer = null;
 
-        const vals = ["Zero", "15", "30", "40", "AD"];
+        const vals = ["0", "15", "30", "40", "AD"];
+        const voiceVals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
 
         function init() {
@@ -112,21 +113,15 @@
         }
 
         function cycleMode() {
-            if (p1 !== 0 || p2 !== 0) {
-                announce("Reset score to change mode.");
-                return;
-            }
+            if (p1 !== 0 || p2 !== 0) { announce("Reset score to change mode."); return; }
             let idx = modes.indexOf(currentMode);
             let nextIdx = (idx + 1) % modes.length;
             selectMode(modes[nextIdx]);
         }
 
         function toggleFullscreen(btn = document.getElementById('fsBtn')) {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => { console.log(err); });
-            } else {
-                document.exitFullscreen();
-            }
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => { console.log(err); });
+            else document.exitFullscreen();
             if (btn) btn.blur();
             if (!voiceUnlocked) unlockVoice();
         }
@@ -172,7 +167,7 @@
             if (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT') {
                 gameScore = (p1 >= 3 && p2 >= 3 && currentMode === 'DEUCE') ? 
                     (p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent")) :
-                    `${vals[p1]}, ${vals[p2]}`;
+                    `${voiceVals[p1] || p1}, ${voiceVals[p2] || p2}`;
             } else {
                 gameScore = `${p1} to ${p2}`;
             }
@@ -186,21 +181,28 @@
             document.getElementById('set2').innerText = s2;
             d1.classList.remove('win-text'); d2.classList.remove('win-text');
 
+            const isTennis = (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT');
+
             if (isGameOver) {
-                if (p1 > p2) { d1.innerText = "WIN"; d1.classList.add('win-text'); d2.innerText = p2; }
-                else { d2.innerText = "WIN"; d2.classList.add('win-text'); d1.innerText = p1; }
+                if (p1 > p2) {
+                    d1.innerText = "WIN"; d1.classList.add('win-text');
+                    d2.innerText = isTennis ? (vals[p2] || "40") : p2;
+                } else {
+                    d2.innerText = "WIN"; d2.classList.add('win-text');
+                    d1.innerText = isTennis ? (vals[p1] || "40") : p1;
+                }
                 return;
             }
 
-            if (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT') {
+            if (isTennis) {
                 const deuce = (p1 >= 3 && p2 >= 3);
                 if (currentMode === 'DEUCE' && deuce) {
                     if (p1 === p2) { d1.innerText = "40"; d2.innerText = "40"; }
                     else if (p1 > p2) { d1.innerText = "AD"; d2.innerText = "40"; }
                     else { d1.innerText = "40"; d2.innerText = "AD"; }
                 } else {
-                    d1.innerText = (vals[p1] === "Zero" ? "0" : vals[p1]);
-                    d2.innerText = (vals[p2] === "Zero" ? "0" : vals[p2]);
+                    d1.innerText = vals[p1] || p1;
+                    d2.innerText = vals[p2] || p2;
                 }
             } else {
                 d1.innerText = p1; d2.innerText = p2;
@@ -224,7 +226,7 @@
             if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}. Score ${s1}, ${s2}`);
             else if (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT') {
                 if (currentMode === 'DEUCE' && p1 >= 3 && p2 >= 3) announce(p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent"));
-                else announce(`${vals[p1]}, ${vals[p2]}`);
+                else announce(`${voiceVals[p1] || p1}, ${voiceVals[p2] || p2}`);
             } else announce(`${p1}, ${p2}`);
 
             const areaId = player === 1 ? 'p1Area' : 'p2Area';
@@ -252,8 +254,6 @@
         document.addEventListener('keyup', (e) => {
             const key = e.key;
             if (isInputLocked) return;
-
-            // Direct Shortcuts (even without voice unlock check, these will trigger unlock)
             if (key === '1') handleInput(1);
             else if (key === '2') handleInput(2);
             else if (key === '3') uiUndo();
@@ -261,8 +261,6 @@
             else if (key === '5') toggleFullscreen();
             else if (key === '0') cycleMode();
             else if (key === '9') location.reload();
-            
-            // Universal Enter Key
             else if (key.toLowerCase() === 'enter') {
                 if (!voiceUnlocked) { unlockVoice(); return; }
                 if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); lockInput(); return; }
