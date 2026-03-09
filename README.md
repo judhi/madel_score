@@ -3,14 +3,15 @@
 A high-performance, professional-grade Padel and Tennis scorekeeper designed for zero-latency operation during active play. This web-based application is optimized to work seamlessly across mobile, desktop, and smart display environments.
 Named after the author's Padel group **Madel - Minggu Padel** that plays every Sunday.
 
-## Live Demo
-**to be added**
+![On Mobile Phone with selfie Bluetooth remote](images/mobile.jpg)
+
+![On SmartTV with TV remote](images/smarttv.jpg)
 
 ---
 
 ## Key Features
 
-- **Multi-Platform Support**: Optimized for S23 Ultra (Mobile), PC/Mac Browsers, and Smart TVs.
+- **Multi-Platform Support**: Optimized for Mobile Phones, Tablets, PC/Mac Browsers, and Smart TVs.
 - **Professional Umpire**: High-quality voice announcements for scores, deuce, advantage, and game wins.
 - **Smart Hardware Integration**: Control the entire app using a single button (Bluetooth remote/earpiece) or a numeric keypad.
 - **Multiple Scoring Modes**:
