@@ -10,41 +10,42 @@
         :root { --p1-color: #00e676; --p2-color: #ff5252; --bg: #000; --header-bg: #111; --lock-red: #d32f2f; }
         body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; }
         
-        /* Dynamic Header Background */
-        header { background: var(--header-bg); padding: 10px 15px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: background 0.3s ease; }
+        header { background: var(--header-bg); padding: 6px 10px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: background 0.3s ease; position: relative; z-index: 5; }
         .locked-header { background: var(--lock-red) !important; }
+        #brand { font-weight: bold; font-size: 14px; color: #fff; letter-spacing: 1px; }
+        .toolbar { display: flex; gap: 4px; width: 100%; justify-content: center; flex-wrap: wrap; }
+        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 4px 6px; border-radius: 8px; font-size: 8px; cursor: pointer; outline: none; flex: 1; min-width: 50px; max-width: 70px; }
         
-        #brand { font-weight: bold; font-size: 18px; color: #fff; letter-spacing: 1px; }
-        .toolbar { display: flex; gap: 5px; width: 100%; justify-content: center; flex-wrap: wrap; }
-        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; outline: none; flex: 1; min-width: 70px; max-width: 90px; }
-        
-        /* Camera Preview */
-        #videoContainer { position: fixed; bottom: 80px; right: 10px; width: 140px; height: 105px; border: 2px solid #444; border-radius: 8px; overflow: hidden; z-index: 10; background: #000; }
+        /* Ultra-Compact Preview - Top Right Corner */
+        #videoContainer { position: fixed; top: 5px; right: 5px; width: 60px; height: 45px; border: 1px solid #444; border-radius: 4px; overflow: hidden; z-index: 20; background: #000; pointer-events: none; }
         #input_video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #gestureStatus { position: fixed; bottom: 190px; right: 10px; font-size: 12px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 4px 8px; border-radius: 4px; min-width: 100px; text-align: center; }
+        #gestureStatus { position: fixed; top: 52px; right: 5px; font-size: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; z-index: 20; min-width: 60px; text-align: center; }
 
-        /* Lockout Timer Bar */
-        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 6px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; }
+        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; }
 
-        .set-score-bar { background: #1a1a1a; padding: 8px; font-size: 20px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
+        .set-score-bar { background: #1a1a1a; padding: 4px; font-size: 16px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
         .set-score-bar span { color: #fff; margin: 0 10px; }
+        
         .court { flex: 1; display: flex; flex-direction: row; }
         .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; }
-        .score { font-size: 22vw; font-weight: 900; line-height: 1; margin: 0; }
-        .label { font-size: 3vw; color: #444; text-transform: uppercase; letter-spacing: 2px; }
-        .divider { width: 2px; background: #222; }
+        .score { font-size: 32vw; font-weight: 900; line-height: 1; margin: 0; }
+        .label { font-size: 2.5vw; color: #444; text-transform: uppercase; letter-spacing: 2px; }
+        .divider { width: 1px; background: #222; }
+        
         .p1-active { color: var(--p1-color) !important; }
         .p2-active { color: var(--p2-color) !important; }
-        .win-text { font-size: 18vw !important; color: #fff !important; }
-        #footer { background: #111; padding: 10px; font-size: 11px; color: #666; border-top: 1px solid #333; }
+        .win-text { font-size: 22vw !important; color: #fff !important; }
+        
+        #footer { background: #111; padding: 6px; font-size: 9px; color: #444; border-top: 1px solid #333; }
+        .locked-interaction { pointer-events: none; }
     </style>
 </head>
-<body>
+<body onclick="kickstartVoice()">
 
     <div id="lockoutTimer"></div>
-    <div id="gestureStatus">BOOTING...</div>
+    <div id="gestureStatus">BOOT...</div>
     <div id="videoContainer">
-        <video id="input_video"></video>
+        <video id="input_video" autoplay playsinline muted></video>
     </div>
 
     <header id="mainHeader">
@@ -54,6 +55,7 @@
             <button class="btn" onclick="uiUndo()">UNDO (3)</button>
             <button class="btn" onclick="uiAnnounce()">REPORT (4)</button>
             <button id="fsBtn" class="btn" onclick="toggleFullscreen()">FULL (5)</button>
+            <button id="zoomBtn" class="btn" onclick="toggleZoom(this)">ZOOM: OFF</button>
         </div>
     </header>
 
@@ -75,13 +77,13 @@
     </div>
 
     <div id="footer">
-        1:You | 2:Opp | 3:Undo | 4:Report<br>
-        Triple-check validation enabled (0.75s)
+        1:You | 2:Opp | 3:Undo | 4:Report | 5:Full | 0:Mode | 9:Reload
     </div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0, history = [];
         let currentMode = 'DEUCE', isGameOver = false, voiceUnlocked = false, isInputLocked = false;
+        let isZoomed = false;
         const vals = ["0", "15", "30", "40", "AD"], voiceVals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
 
@@ -97,12 +99,34 @@
             setupGestures();
         }
 
+        function toggleZoom(btn) {
+            isZoomed = !isZoomed;
+            btn.innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF";
+            btn.classList.toggle('active-mode');
+            const video = document.getElementById('input_video');
+            // Digital zoom via CSS for the preview
+            video.style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)";
+            if(voiceUnlocked) announce("Zoom " + (isZoomed ? "on" : "off"));
+            btn.blur();
+        }
+
+        function kickstartVoice() {
+            if (voiceUnlocked) return;
+            synth.cancel(); 
+            const silent = new SpeechSynthesisUtterance(" ");
+            silent.volume = 0;
+            synth.speak(silent);
+            voiceUnlocked = true;
+            announce("Umpire ready");
+            lockInput();
+        }
+
         function setupGestures() {
             const videoElement = document.getElementById('input_video');
             const statusElement = document.getElementById('gestureStatus');
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.8, minTrackingConfidence: 0.8 });
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
 
             hands.onResults((results) => {
                 const now = Date.now();
@@ -116,6 +140,18 @@
                 }
                 
                 const landmarks = results.multiHandLandmarks[0];
+
+                // DIGITAL ZOOM LOGIC (AI SIDE)
+                // If zoomed, ignore landmarks that fall outside the center 50% of the sensor
+                if (isZoomed) {
+                    const x = landmarks[0].x;
+                    const y = landmarks[0].y;
+                    if (x < 0.25 || x > 0.75 || y < 0.25 || y > 0.75) {
+                        statusElement.innerText = "OUT OF ZOOM";
+                        return;
+                    }
+                }
+
                 const fingers = [8, 12, 16, 20].map(i => landmarks[i].y < landmarks[i-2].y);
                 const extendedCount = fingers.filter(Boolean).length;
                 
@@ -128,16 +164,13 @@
                 if (detectedAction) {
                     gestureBuffer.push(detectedAction);
                     statusElement.innerText = `${detectedAction} ${gestureBuffer.length}/3`;
-                } else {
-                    gestureBuffer = [];
-                }
+                } else { gestureBuffer = []; }
 
                 if (gestureBuffer.length >= FRAME_THRESHOLD) {
                     const consistent = gestureBuffer.every(g => g === gestureBuffer[0]);
                     if (consistent) {
-                        const finalAction = gestureBuffer[0];
+                        executeAction(gestureBuffer[0]);
                         gestureBuffer = [];
-                        executeAction(finalAction);
                     } else { gestureBuffer.shift(); }
                 }
             });
@@ -161,8 +194,8 @@
             isInputLocked = true;
             const header = document.getElementById('mainHeader');
             const bar = document.getElementById('lockoutTimer');
-            
             header.classList.add('locked-header');
+            document.getElementById('courtArea').classList.add('locked-interaction');
             
             bar.style.transition = "none";
             bar.style.transform = "scaleX(1)";
@@ -174,6 +207,7 @@
             setTimeout(() => {
                 isInputLocked = false;
                 header.classList.remove('locked-header');
+                document.getElementById('courtArea').classList.remove('locked-interaction');
                 document.getElementById('gestureStatus').innerText = "READY";
             }, 5000); 
         }
@@ -188,7 +222,6 @@
             
             if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}.`);
             else announce(getVoiceScore());
-            
             render();
             lockInput();
         }
@@ -216,18 +249,27 @@
 
         function handleInput(player) {
             if (isInputLocked) return;
-            if (!voiceUnlocked) { unlockVoice(); return; }
+            if (!voiceUnlocked) { kickstartVoice(); return; }
             if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); lockInput(); } 
             else handleScore(player);
         }
 
-        function uiUndo() { if (isInputLocked) return; if (!voiceUnlocked) { unlockVoice(); return; } if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
-        function uiAnnounce() { if (isInputLocked) return; if (!voiceUnlocked) { unlockVoice(); return; } announce(`Score is ${getVoiceScore()}.`); lockInput(); }
+        function uiUndo() { if (isInputLocked) return; if (!voiceUnlocked) { kickstartVoice(); return; } if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
+        function uiAnnounce() { if (isInputLocked) return; if (!voiceUnlocked) { kickstartVoice(); return; } announce(`Score is ${getVoiceScore()}.`); lockInput(); }
         function getVoiceScore() { if (currentMode==='DEUCE'||currentMode==='GOLDEN POINT') { if (currentMode==='DEUCE'&&p1>=3&&p2>=3) return p1===p2?"Deuce":(p1>p2?"Advantage You":"Advantage Opponent"); return `${voiceVals[p1]||p1}, ${voiceVals[p2]||p2}`; } return `${p1}, ${p2}`; }
-        function announce(t) { if (!voiceUnlocked) return; synth.cancel(); const m = new SpeechSynthesisUtterance(t); m.rate = 1.1; synth.speak(m); }
-        function unlockVoice() { voiceUnlocked = true; announce("Umpire ready"); lockInput(); }
+        
+        function announce(t) { 
+            if (!voiceUnlocked) return; 
+            synth.cancel(); 
+            const m = new SpeechSynthesisUtterance(t); 
+            m.lang = 'en-US'; 
+            m.rate = 1.0; 
+            const voices = synth.getVoices();
+            if (voices.length > 0) m.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+            synth.speak(m); 
+        }
+
         function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-        function openModal() { if (p1===0 && p2===0) { let nextIdx = (modes.indexOf(currentMode)+1)%modes.length; selectMode(modes[nextIdx]); } }
         const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
         function selectMode(choice) { currentMode = choice; localStorage.setItem('madel_mode', choice); document.getElementById('modeBtn').innerText = choice + " (0)"; announce("Mode " + choice); }
 
