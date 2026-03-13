@@ -16,12 +16,12 @@
         .toolbar { display: flex; gap: 4px; width: 100%; justify-content: center; flex-wrap: wrap; }
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 4px 6px; border-radius: 8px; font-size: 8px; cursor: pointer; outline: none; flex: 1; min-width: 50px; max-width: 70px; }
         
-        /* Ultra-Compact Preview - Top Right Corner */
-        #videoContainer { position: fixed; top: 5px; right: 5px; width: 60px; height: 45px; border: 1px solid #444; border-radius: 4px; overflow: hidden; z-index: 20; background: #000; pointer-events: none; }
+        /* Compact Preview - Bottom Right */
+        #videoContainer { position: fixed; bottom: 40px; right: 10px; width: 60px; height: 45px; border: 1px solid #444; border-radius: 4px; overflow: hidden; z-index: 20; background: #000; pointer-events: none; }
         #input_video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #gestureStatus { position: fixed; top: 52px; right: 5px; font-size: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; z-index: 20; min-width: 60px; text-align: center; }
+        #gestureStatus { position: fixed; bottom: 90px; right: 10px; font-size: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; z-index: 20; min-width: 60px; text-align: center; }
 
-        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; }
+        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; }
 
         .set-score-bar { background: #1a1a1a; padding: 4px; font-size: 16px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
         .set-score-bar span { color: #fff; margin: 0 10px; }
@@ -88,7 +88,7 @@
         const synth = window.speechSynthesis;
 
         let gestureBuffer = [];
-        const FRAME_THRESHOLD = 3;
+        const FRAME_THRESHOLD = 2; // Reduced to 2 consecutive frames as requested
         const FRAME_INTERVAL = 250; 
         let lastFrameTime = 0;
 
@@ -97,27 +97,34 @@
             if (savedMode) { currentMode = savedMode; document.getElementById('modeBtn').innerText = savedMode + " (0)"; }
             render();
             setupGestures();
+            // Load voices early
+            synth.getVoices();
         }
 
         function toggleZoom(btn) {
             isZoomed = !isZoomed;
             btn.innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF";
-            btn.classList.toggle('active-mode');
             const video = document.getElementById('input_video');
-            // Digital zoom via CSS for the preview
             video.style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)";
             if(voiceUnlocked) announce("Zoom " + (isZoomed ? "on" : "off"));
             btn.blur();
         }
 
+        // --- UNIVERSAL ANDROID VOICE FIX ---
         function kickstartVoice() {
-            if (voiceUnlocked) return;
+            if (voiceUnlocked) {
+                // Keep engine alive on subsequent taps
+                const keepAlive = new SpeechSynthesisUtterance("");
+                keepAlive.volume = 0;
+                synth.speak(keepAlive);
+                return;
+            }
             synth.cancel(); 
-            const silent = new SpeechSynthesisUtterance(" ");
+            const silent = new SpeechSynthesisUtterance("Starting");
             silent.volume = 0;
             synth.speak(silent);
             voiceUnlocked = true;
-            announce("Umpire ready");
+            setTimeout(() => { announce("Umpire ready"); }, 100);
             lockInput();
         }
 
@@ -140,14 +147,11 @@
                 }
                 
                 const landmarks = results.multiHandLandmarks[0];
-
-                // DIGITAL ZOOM LOGIC (AI SIDE)
-                // If zoomed, ignore landmarks that fall outside the center 50% of the sensor
                 if (isZoomed) {
                     const x = landmarks[0].x;
                     const y = landmarks[0].y;
                     if (x < 0.25 || x > 0.75 || y < 0.25 || y > 0.75) {
-                        statusElement.innerText = "OUT OF ZOOM";
+                        statusElement.innerText = "CENTER HAND";
                         return;
                     }
                 }
@@ -163,7 +167,7 @@
 
                 if (detectedAction) {
                     gestureBuffer.push(detectedAction);
-                    statusElement.innerText = `${detectedAction} ${gestureBuffer.length}/3`;
+                    statusElement.innerText = `${detectedAction} ${gestureBuffer.length}/2`;
                 } else { gestureBuffer = []; }
 
                 if (gestureBuffer.length >= FRAME_THRESHOLD) {
@@ -194,20 +198,19 @@
             isInputLocked = true;
             const header = document.getElementById('mainHeader');
             const bar = document.getElementById('lockoutTimer');
+            const court = document.getElementById('courtArea');
             header.classList.add('locked-header');
-            document.getElementById('courtArea').classList.add('locked-interaction');
-            
+            court.classList.add('locked-interaction');
             bar.style.transition = "none";
             bar.style.transform = "scaleX(1)";
             setTimeout(() => {
                 bar.style.transition = "transform 5s linear";
                 bar.style.transform = "scaleX(0)";
             }, 50);
-
             setTimeout(() => {
                 isInputLocked = false;
                 header.classList.remove('locked-header');
-                document.getElementById('courtArea').classList.remove('locked-interaction');
+                court.classList.remove('locked-interaction');
                 document.getElementById('gestureStatus').innerText = "READY";
             }, 5000); 
         }
@@ -215,11 +218,9 @@
         function handleScore(player) {
             history.push({p1, p2, s1, s2, isGameOver});
             if (player === 1) p1++; else p2++;
-            
             if (currentMode === 'GOLDEN POINT') { if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; } }
             else if (currentMode === 'DEUCE') { if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
             else { let limit = parseInt(currentMode); if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
-            
             if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}.`);
             else announce(getVoiceScore());
             render();
@@ -269,9 +270,9 @@
             synth.speak(m); 
         }
 
-        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); if(!voiceUnlocked) kickstartVoice(); }
         const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
-        function selectMode(choice) { currentMode = choice; localStorage.setItem('madel_mode', choice); document.getElementById('modeBtn').innerText = choice + " (0)"; announce("Mode " + choice); }
+        function selectMode(choice) { currentMode = choice; localStorage.setItem('madel_mode', choice); document.getElementById('modeBtn').innerText = choice + " (0)"; if(voiceUnlocked) announce("Mode " + choice); }
 
         document.addEventListener('keyup', (e) => {
             if (isInputLocked) return;
