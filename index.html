@@ -28,7 +28,7 @@
         .is-locked-out { pointer-events: none !important; }
     </style>
 </head>
-<body id="appBody" onclick="forceUnlockVoice()">
+<body id="appBody" onclick="handleBodyClick()">
 
     <div id="lockoutTimer"></div>
     <div id="gestureStatus">BOOT...</div>
@@ -63,11 +63,12 @@
         </div>
     </div>
 
-    <div id="footer">✋✋:RESET | 🤟:ZOOM | ✋:FULL | ✊:MODE | ☝️:YOU | ✌️:OPP</div>
+    <div id="footer">🤟(1s): ZOOM | ✋: FULL | ✊: MODE | ☝️: YOU | ✌️: OPP</div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0, history = [];
         let currentMode = 'DEUCE', isGameOver = false, voiceUnlocked = false, isInputLocked = false, isZoomed = false;
+        let pendingFullscreen = false;
         const modes = ['DEUCE', 'GOLDEN POINT', '16 point', '21 point', '24 point', '32 point'];
         const vals = ["0", "15", "30", "40", "AD"], voiceVals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
@@ -92,11 +93,16 @@
             osc.start(); osc.stop(audioCtx.currentTime + duration);
         }
 
+        function handleBodyClick() {
+            if (!voiceUnlocked) forceUnlockVoice();
+            if (pendingFullscreen) {
+                toggleFullscreen();
+                pendingFullscreen = false;
+            }
+        }
+
         function forceUnlockVoice() {
             if (voiceUnlocked) return;
-            if ('mediaSession' in navigator) { 
-                navigator.mediaSession.metadata = new MediaMetadata({ title: 'MADEL SCORE', artist: 'JPS' }); 
-            }
             voiceUnlocked = true; synth.cancel();
             const silent = new SpeechSynthesisUtterance("Umpire ready"); synth.speak(silent);
             playBeep(440, 0.2); lockInput();
@@ -180,17 +186,26 @@
 
                 if (act) {
                     gestureBuffer.push(act);
-                    status.innerText = act + " " + gestureBuffer.length + "/2";
-                    if (gestureBuffer.length >= 2) {
+                    // Required frames for completion: 4 for zoom (1s), 2 for others (0.5s)
+                    const req = (act === "ILY_ZOOM") ? 4 : 2;
+                    status.innerText = act + " " + gestureBuffer.length + "/" + req;
+                    
+                    if (gestureBuffer.length >= req) {
                         const res = gestureBuffer[0]; gestureBuffer = [];
-                        playBeep(880, 0.1); 
-                        if (res === "MODE") openModal();
-                        else if (res === "YOU") handleInput(1);
-                        else if (res === "OPP") handleInput(2);
-                        else if (res === "UNDO") uiUndo();
-                        else if (res === "REPORT") uiAnnounce();
-                        else if (res === "FULLSCR") toggleFullscreen();
-                        else if (res === "ILY_ZOOM") toggleZoom();
+                        if (res === "ILY_ZOOM") { toggleZoom(); }
+                        else if (res === "FULLSCR") { 
+                            announce("Tap screen to expand"); 
+                            pendingFullscreen = true; 
+                            playBeep(600, 0.1);
+                        }
+                        else {
+                            playBeep(880, 0.1);
+                            if (res === "MODE") openModal();
+                            else if (res === "YOU") handleInput(1);
+                            else if (res === "OPP") handleInput(2);
+                            else if (res === "UNDO") uiUndo();
+                            else if (res === "REPORT") uiAnnounce();
+                        }
                     }
                 } else { gestureBuffer = []; }
             });
@@ -241,7 +256,14 @@
         function getVoiceScore() { if (currentMode==='DEUCE'||currentMode==='GOLDEN POINT') { if (currentMode==='DEUCE'&&p1>=3&&p2>=3) return p1===p2?"Deuce":(p1>p2?"Advantage You":"Advantage Opponent"); return `${voiceVals[p1]||p1}, ${voiceVals[p2]||p2}`; } return `${p1}, ${p2}`; }
         function uiUndo() { if (isInputLocked) return; if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
         function uiAnnounce() { if (isInputLocked) return; announce(`Score is ${getVoiceScore()}. Set score is ${s1} to ${s2}`); lockInput(); }
-        function toggleZoom() { isZoomed = !isZoomed; document.getElementById('zoomBtn').innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF"; document.getElementById('input_video').style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)"; if(voiceUnlocked) announce("Zoom " + (isZoomed ? "on" : "off")); }
+        function toggleZoom() { 
+            isZoomed = !isZoomed; 
+            document.getElementById('zoomBtn').innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF"; 
+            document.getElementById('input_video').style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)"; 
+            playBeep(1200, 0.1);
+            if(voiceUnlocked) announce("Zoom " + (isZoomed ? "on" : "off")); 
+            lockInput(); // Add lock to prevent rapid re-toggle
+        }
         function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
         function openModal() { if(p1===0 && p2===0) { let next = (modes.indexOf(currentMode)+1)%modes.length; currentMode = modes[next]; localStorage.setItem('madel_mode', currentMode); document.getElementById('modeBtn').innerText = currentMode + " (0)"; if(voiceUnlocked) announce("Mode " + currentMode); lockInput(); } }
 
