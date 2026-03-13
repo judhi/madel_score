@@ -52,17 +52,17 @@
 
     <div id="courtArea" class="court">
         <div id="p1Area" class="pane" onclick="handleInput(1, event)">
-            <div class="label">YOU (☝️)</div>
+            <div class="label">YOU (☝️ Upright)</div>
             <div id="p1Disp" class="score p1-active">0</div>
         </div>
         <div class="divider"></div>
         <div id="p2Area" class="pane" onclick="handleInput(2, event)">
-            <div class="label">OPP (✌️)</div>
+            <div class="label">OPP (✌️ Upright)</div>
             <div id="p2Disp" class="score p2-active">0</div>
         </div>
     </div>
 
-    <div id="footer">TAP SCREEN TO START VOICE | ✌️:Undo | ☝️:You | ✋:Opp</div>
+    <div id="footer">UPRIGHT GESTURES ONLY | ✌️:Undo | ☝️:You | ✋:Opp</div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0, history = [];
@@ -77,28 +77,16 @@
             if (savedMode) { currentMode = savedMode; document.getElementById('modeBtn').innerText = savedMode + " (0)"; }
             render();
             setupGestures();
-            // Pre-load voices for iOS
-            if (speechSynthesis.onvoiceschanged !== undefined) {
-                speechSynthesis.onvoiceschanged = () => synth.getVoices();
-            }
+            if (speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = () => synth.getVoices(); }
         }
 
-        // --- THE UNIVERSAL VOICE FIX ---
         function forceUnlockVoice() {
             if (voiceUnlocked) return;
-            
-            // 1. Immediate hardware wake
             synth.cancel();
             const silent = new SpeechSynthesisUtterance("Umpire");
-            silent.volume = 0.01; // Tiny audible blip to wake iOS audio
-            silent.rate = 10;    // Fast so it doesn't delay match
-            synth.speak(silent);
-
-            // 2. State change
+            silent.volume = 0.01; silent.rate = 10; synth.speak(silent);
             voiceUnlocked = true;
-            
-            // 3. Proper Announcement
-            setTimeout(() => { announce("Umpire ready. Set score is " + s1 + " to " + s2); }, 200);
+            setTimeout(() => { announce("Umpire ready. Score is " + s1 + " to " + s2); }, 200);
             lockInput();
         }
 
@@ -106,17 +94,10 @@
             if (!voiceUnlocked) return;
             synth.cancel();
             const m = new SpeechSynthesisUtterance(t);
-            m.lang = 'en-US';
-            m.rate = 1.0;
-            m.pitch = 1.0;
-            
-            // Find a natural voice (crucial for iOS)
+            m.lang = 'en-US'; m.rate = 1.0;
             const voices = synth.getVoices();
             const preferred = voices.find(v => v.lang.includes('en-GB') || v.lang.includes('en-US'));
             if (preferred) m.voice = preferred;
-
-            // Fix for Chrome/Safari Android: re-trigger onend
-            m.onend = () => { synth.cancel(); };
             synth.speak(m);
         }
 
@@ -125,13 +106,13 @@
             document.getElementById('mainHeader').classList.add('locked-header');
             document.body.classList.add('is-locked-out');
             const bar = document.getElementById('lockoutTimer');
-            bar.style.transition = "none";
-            bar.style.transform = "scaleX(1)";
+            bar.style.transition = "none"; bar.style.transform = "scaleX(1)";
             setTimeout(() => { bar.style.transition = "transform 5s linear"; bar.style.transform = "scaleX(0)"; }, 50);
             setTimeout(() => {
                 isInputLocked = false;
                 document.getElementById('mainHeader').classList.remove('locked-header');
                 document.body.classList.remove('is-locked-out');
+                document.getElementById('gestureStatus').innerText = "READY";
             }, 5000);
         }
 
@@ -139,15 +120,41 @@
             const video = document.getElementById('input_video');
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            
             hands.onResults((results) => {
-                if (isInputLocked || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+                const statusElement = document.getElementById('gestureStatus');
+                if (isInputLocked || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                    if(!isInputLocked) statusElement.innerText = "WAITING...";
+                    return;
+                }
+                
                 const landmarks = results.multiHandLandmarks[0];
+                
+                // --- UPRIGHT CHECK LOGIC ---
+                // Vector from Wrist (0) to Middle Finger MCP (9)
+                const dy = landmarks[9].y - landmarks[0].y;
+                const dx = landmarks[9].x - landmarks[0].x;
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                
+                // Gravity is -Y, so a perfectly upright hand has dy < 0 (tip above wrist)
+                // Angle for "Up" is roughly -90 degrees in screen space
+                const isUpright = (angle < -45 && angle > -135);
+
+                if (!isUpright) {
+                    statusElement.innerText = "TILTING...";
+                    gestureBuffer = [];
+                    return;
+                }
+
                 if (isZoomed && (landmarks[0].x < 0.25 || landmarks[0].x > 0.75)) return;
+
                 const fingers = [8, 12, 16, 20].map(i => landmarks[i].y < landmarks[i-2].y);
                 const count = fingers.filter(Boolean).length;
                 let act = (count === 1) ? "YOU" : (count === 2) ? "OPP" : (count === 3) ? "UNDO" : (count === 4) ? "REPORT" : null;
+                
                 if (act) {
                     gestureBuffer.push(act);
+                    statusElement.innerText = act + " " + gestureBuffer.length + "/2";
                     if (gestureBuffer.length >= 2 && gestureBuffer.every(v => v === act)) {
                         gestureBuffer = [];
                         if (act === "YOU") handleInput(1);
@@ -176,8 +183,7 @@
             else { let limit = parseInt(currentMode); if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
             if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}. Set score ${s1} to ${s2}`);
             else announce(getVoiceScore());
-            render();
-            lockInput();
+            render(); lockInput();
         }
 
         function render() {
@@ -208,28 +214,20 @@
             if (isInputLocked) return;
             const k = e.key;
             if (k === 'Enter') {
-                e.preventDefault();
-                if (!voiceUnlocked) { forceUnlockVoice(); return; }
+                e.preventDefault(); if (!voiceUnlocked) { forceUnlockVoice(); return; }
                 if (isGameOver) { handleInput(0); return; }
                 clickCount++; if (clickTimer) clearTimeout(clickTimer);
                 clickTimer = setTimeout(() => {
-                    if (clickCount === 1) handleScore(1);
-                    else if (clickCount === 2) handleScore(2);
-                    else if (clickCount === 3) uiUndo();
-                    else if (clickCount >= 4) uiAnnounce();
+                    if (clickCount === 1) handleScore(1); else if (clickCount === 2) handleScore(2);
+                    else if (clickCount === 3) uiUndo(); else if (clickCount >= 4) uiAnnounce();
                     clickCount = 0;
                 }, 500);
             } else {
-                if (k === '1') handleInput(1);
-                else if (k === '2') handleInput(2);
-                else if (k === '3') uiUndo();
-                else if (k === '4') uiAnnounce();
-                else if (k === '5') toggleFullscreen();
-                else if (k === '0') openModal();
-                else if (k === '9') location.reload();
+                if (k === '1') handleInput(1); else if (k === '2') handleInput(2);
+                else if (k === '3') uiUndo(); else if (k === '4') uiAnnounce();
+                else if (k === '5') toggleFullscreen(); else if (k === '0') openModal(); else if (k === '9') location.reload();
             }
         });
-
         init();
     </script>
 </body>
