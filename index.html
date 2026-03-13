@@ -11,19 +11,24 @@
         body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; touch-action: manipulation; }
         header { background: var(--header-bg); padding: 6px 10px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: background 0.3s ease; position: relative; z-index: 100; }
         .locked-header { background: var(--lock-red) !important; }
+        
         #videoContainer { position: fixed; bottom: 45px; right: 10px; width: 60px; height: 45px; border: 1px solid #444; border-radius: 4px; overflow: hidden; z-index: 50; background: #000; pointer-events: none; }
         #input_video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         #gestureStatus { position: fixed; bottom: 95px; right: 10px; font-size: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; z-index: 50; min-width: 60px; text-align: center; }
+        
         #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; pointer-events: none; }
         .set-score-bar { background: #1a1a1a; padding: 4px; font-size: 16px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; z-index: 10; }
+        
         .court { flex: 1; display: flex; flex-direction: row; z-index: 5; }
         .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .score { font-size: 32vw; font-weight: 900; line-height: 1; margin: 0; pointer-events: none; }
         .label { font-size: 2.5vw; color: #444; text-transform: uppercase; pointer-events: none; }
         .divider { width: 1px; background: #222; }
+        
         .p1-active { color: var(--p1-color) !important; }
         .p2-active { color: var(--p2-color) !important; }
         .win-text { font-size: 22vw !important; color: #fff !important; }
+        
         #footer { background: #111; padding: 6px; font-size: 9px; color: #444; border-top: 1px solid #333; z-index: 10; }
         .is-locked-out { pointer-events: none !important; }
     </style>
@@ -42,6 +47,7 @@
             <button class="btn" onclick="uiAnnounce()">REPORT (4)</button>
             <button id="fsBtn" class="btn" onclick="toggleFullscreen()">FULL (5)</button>
             <button id="zoomBtn" class="btn" onclick="toggleZoom()">ZOOM: OFF</button>
+            <button class="btn" style="background:#500" onclick="hardReset()">RESET</button>
         </div>
     </header>
 
@@ -62,12 +68,11 @@
         </div>
     </div>
 
-    <div id="footer">✊:Mode | ✌️:Undo | ☝️:You | ✋:Opp | 3s Lock</div>
+    <div id="footer">✋✋: RESET | ✋: ZOOM | ✊: MODE | ☝️: YOU | ✌️: OPP</div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0, history = [];
         let currentMode = 'DEUCE', isGameOver = false, voiceUnlocked = false, isInputLocked = false, isZoomed = false;
-        // Natural phonetic labels
         const modes = ['DEUCE', 'GOLDEN POINT', '16 point', '24 point', '32 point'];
         const vals = ["0", "15", "30", "40", "AD"], voiceVals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
@@ -82,13 +87,9 @@
 
         function forceUnlockVoice() {
             if (voiceUnlocked) return;
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({ title: 'MADEL SCORE', artist: 'JPS' });
-            }
-            voiceUnlocked = true;
-            synth.cancel();
-            const silent = new SpeechSynthesisUtterance("Umpire ready");
-            synth.speak(silent);
+            if ('mediaSession' in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: 'MADEL SCORE', artist: 'JPS' }); }
+            voiceUnlocked = true; synth.cancel();
+            const silent = new SpeechSynthesisUtterance("Umpire ready"); synth.speak(silent);
             lockInput();
         }
 
@@ -98,8 +99,8 @@
             const m = new SpeechSynthesisUtterance(t);
             m.lang = 'en-US'; m.rate = 1.0;
             const voices = synth.getVoices();
-            const voice = voices.find(v => v.lang.includes('en-GB') || v.lang.includes('en-US')) || voices[0];
-            if (voice) m.voice = voice;
+            const preferred = voices.find(v => v.lang.includes('en-GB') || v.lang.includes('en-US'));
+            if (preferred) m.voice = preferred;
             synth.speak(m);
         }
 
@@ -108,30 +109,54 @@
             document.getElementById('mainHeader').classList.add('locked-header');
             document.body.classList.add('is-locked-out');
             const bar = document.getElementById('lockoutTimer');
-            bar.style.transition = "none";
-            bar.style.transform = "scaleX(1)";
+            bar.style.transition = "none"; bar.style.transform = "scaleX(1)";
             setTimeout(() => { bar.style.transition = "transform 3s linear"; bar.style.transform = "scaleX(0)"; }, 50);
             setTimeout(() => {
                 isInputLocked = false;
                 document.getElementById('mainHeader').classList.remove('locked-header');
                 document.body.classList.remove('is-locked-out');
                 document.getElementById('gestureStatus').innerText = "READY";
-            }, 3000); // Reduced to 3 seconds
+            }, 3000);
         }
 
         function setupGestures() {
             const video = document.getElementById('input_video');
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            
+            // Set for 2 hands tracking
+            hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            
             hands.onResults((results) => {
                 const status = document.getElementById('gestureStatus');
-                if (isInputLocked || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-                    if(!isInputLocked) status.innerText = "WAITING...";
+                if (isInputLocked) return;
+
+                // --- RESET CHECK (Double Palms) ---
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length === 2) {
+                    let palms = 0;
+                    results.multiHandLandmarks.forEach(hand => {
+                        const fingers = [8, 12, 16, 20].map(i => hand[i].y < hand[i-2].y);
+                        if (fingers.filter(Boolean).length >= 4) palms++;
+                    });
+                    if (palms === 2) {
+                        status.innerText = "RESETTING...";
+                        gestureBuffer.push("RESET");
+                        if (gestureBuffer.length >= 3) { hardReset(); gestureBuffer = []; }
+                        return;
+                    }
+                }
+
+                if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                    status.innerText = "WAITING...";
+                    gestureBuffer = [];
                     return;
                 }
+
                 const landmarks = results.multiHandLandmarks[0];
-                const isUpright = (Math.atan2(landmarks[9].y - landmarks[0].y, landmarks[9].x - landmarks[0].x) * (180 / Math.PI)) < -45;
-                if (!isUpright) { status.innerText = "TILTING..."; return; }
+                const dy = landmarks[9].y - landmarks[0].y;
+                const dx = landmarks[9].x - landmarks[0].x;
+                const isUpright = (Math.atan2(dy, dx) * (180 / Math.PI)) < -45;
+
+                if (!isUpright) { status.innerText = "TILTING..."; gestureBuffer = []; return; }
                 if (isZoomed && (landmarks[0].x < 0.25 || landmarks[0].x > 0.75)) return;
 
                 const fingers = [8, 12, 16, 20].map(i => landmarks[i].y < landmarks[i-2].y);
@@ -144,6 +169,8 @@
                 else if (count === 2) act = "OPP";
                 else if (count === 3) act = "UNDO";
                 else if (count === 4) act = "REPORT";
+                else if (count === 4 && isThumbUp) act = "ZOOM"; // 5 fingers (thumb + 4 fingers)
+                else if (count === 0 && isThumbUp) act = "ZOOM"; // Alternative 5 check
 
                 if (act) {
                     gestureBuffer.push(act);
@@ -155,10 +182,16 @@
                         else if (res === "OPP") handleInput(2);
                         else if (res === "UNDO") uiUndo();
                         else if (res === "REPORT") uiAnnounce();
+                        else if (res === "ZOOM") toggleZoom();
                     }
                 } else { gestureBuffer = []; }
             });
             new Camera(video, { onFrame: async () => { await hands.send({image: video}); }, width: 640, height: 480 }).start();
+        }
+
+        function hardReset() {
+            p1 = 0; p2 = 0; s1 = 0; s2 = 0; isGameOver = false; history = [];
+            render(); announce("Match reset. Score is zero all."); lockInput();
         }
 
         function handleInput(player, event) {
@@ -200,19 +233,9 @@
         function getVoiceScore() { if (currentMode==='DEUCE'||currentMode==='GOLDEN POINT') { if (currentMode==='DEUCE'&&p1>=3&&p2>=3) return p1===p2?"Deuce":(p1>p2?"Advantage You":"Advantage Opponent"); return `${voiceVals[p1]||p1}, ${voiceVals[p2]||p2}`; } return `${p1}, ${p2}`; }
         function uiUndo() { if (isInputLocked) return; if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
         function uiAnnounce() { if (isInputLocked) return; announce(`Score is ${getVoiceScore()}. Set score is ${s1} to ${s2}`); lockInput(); }
-        function toggleZoom() { isZoomed = !isZoomed; document.getElementById('zoomBtn').innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF"; document.getElementById('input_video').style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)"; }
+        function toggleZoom() { isZoomed = !isZoomed; document.getElementById('zoomBtn').innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF"; document.getElementById('input_video').style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)"; if(voiceUnlocked) announce("Zoom " + (isZoomed ? "on" : "off")); }
         function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-        
-        function openModal() { 
-            if(p1===0 && p2===0) { 
-                let next = (modes.indexOf(currentMode)+1)%modes.length; 
-                currentMode = modes[next]; 
-                localStorage.setItem('madel_mode', currentMode); 
-                document.getElementById('modeBtn').innerText = currentMode + " (0)"; 
-                if(voiceUnlocked) announce("Mode " + currentMode); 
-                lockInput(); // Lock after gesture mode change
-            } 
-        }
+        function openModal() { if(p1===0 && p2===0) { let next = (modes.indexOf(currentMode)+1)%modes.length; currentMode = modes[next]; localStorage.setItem('madel_mode', currentMode); document.getElementById('modeBtn').innerText = currentMode + " (0)"; if(voiceUnlocked) announce("Mode " + currentMode); lockInput(); } }
 
         document.addEventListener('keydown', (e) => {
             if (isInputLocked) return;
