@@ -4,55 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MADEL SCORE by JPS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <style>
-        :root { --p1-color: #00e676; --p2-color: #ff5252; --bg: #000; }
+        :root { --p1-color: #00e676; --p2-color: #ff5252; --bg: #000; --header-bg: #111; --lock-red: #d32f2f; }
         body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; }
-        header { background: #111; padding: 10px 15px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        
+        /* Dynamic Header Background */
+        header { background: var(--header-bg); padding: 10px 15px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: background 0.3s ease; }
+        .locked-header { background: var(--lock-red) !important; }
+        
         #brand { font-weight: bold; font-size: 18px; color: #fff; letter-spacing: 1px; }
         .toolbar { display: flex; gap: 5px; width: 100%; justify-content: center; flex-wrap: wrap; }
         .btn { background: #333; color: #fff; border: 1px solid #555; padding: 6px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; outline: none; flex: 1; min-width: 70px; max-width: 90px; }
-        .btn:active { background: #555; }
-        #modeModal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; }
-        .modal-content { background: #222; padding: 20px; border-radius: 20px; border: 1px solid #444; width: 85%; max-width: 320px; }
-        .modal-btn { background: #444; color: white; border: none; padding: 12px; margin: 5px 0; width: 100%; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        
+        /* Camera Preview */
+        #videoContainer { position: fixed; bottom: 80px; right: 10px; width: 140px; height: 105px; border: 2px solid #444; border-radius: 8px; overflow: hidden; z-index: 10; background: #000; }
+        #input_video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        #gestureStatus { position: fixed; bottom: 190px; right: 10px; font-size: 12px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 4px 8px; border-radius: 4px; min-width: 100px; text-align: center; }
+
+        /* Lockout Timer Bar */
+        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 6px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; }
+
         .set-score-bar { background: #1a1a1a; padding: 8px; font-size: 20px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
         .set-score-bar span { color: #fff; margin: 0 10px; }
         .court { flex: 1; display: flex; flex-direction: row; }
-        .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; transition: background 0.1s; cursor: pointer; }
+        .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; }
         .score { font-size: 22vw; font-weight: 900; line-height: 1; margin: 0; }
         .label { font-size: 3vw; color: #444; text-transform: uppercase; letter-spacing: 2px; }
         .divider { width: 2px; background: #222; }
         .p1-active { color: var(--p1-color) !important; }
         .p2-active { color: var(--p2-color) !important; }
         .win-text { font-size: 18vw !important; color: #fff !important; }
-        .flash { background: #1a1a1a !important; }
-        #footer { background: #111; padding: 8px; font-size: 10px; color: #666; border-top: 1px solid #333; }
-        #footer a { color: #888; text-decoration: none; font-weight: bold; }
-        #footer a:hover { color: #fff; }
-        .locked { opacity: 0.5; pointer-events: none; }
+        #footer { background: #111; padding: 10px; font-size: 11px; color: #666; border-top: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <div id="modeModal">
-        <div class="modal-content">
-            <h3 style="margin-top:0">Scoring Type</h3>
-            <button class="modal-btn" onclick="selectMode('DEUCE')">DEUCE</button>
-            <button class="modal-btn" onclick="selectMode('GOLDEN POINT')">GOLDEN POINT</button>
-            <button class="modal-btn" onclick="selectMode('16-POINT')">16-POINT</button>
-            <button class="modal-btn" onclick="selectMode('24-POINT')">24-POINT</button>
-            <button class="modal-btn" onclick="selectMode('32-POINT')">32-POINT</button>
-            <button class="modal-btn" style="background:transparent; font-size:12px;" onclick="closeModal()">Cancel</button>
-        </div>
+    <div id="lockoutTimer"></div>
+    <div id="gestureStatus">BOOTING...</div>
+    <div id="videoContainer">
+        <video id="input_video"></video>
     </div>
 
     <header id="mainHeader">
         <span id="brand">MADEL SCORE by JPS</span>
         <div class="toolbar">
             <button id="modeBtn" class="btn" onclick="openModal()">DEUCE (0)</button>
-            <button class="btn" onclick="uiUndo(this)">UNDO (3)</button>
-            <button class="btn" onclick="uiAnnounce(this)">REPORT (4)</button>
-            <button id="fsBtn" class="btn" onclick="toggleFullscreen(this)">FULL (5)</button>
+            <button class="btn" onclick="uiUndo()">UNDO (3)</button>
+            <button class="btn" onclick="uiAnnounce()">REPORT (4)</button>
+            <button id="fsBtn" class="btn" onclick="toggleFullscreen()">FULL (5)</button>
         </div>
     </header>
 
@@ -62,120 +63,134 @@
     </div>
 
     <div id="courtArea" class="court">
-        <div id="p1Area" class="pane" onclick="handleInput(1)">
-            <div class="label">YOU (1)</div>
+        <div id="p1Area" class="pane">
+            <div class="label">YOU (☝️)</div>
             <div id="p1Disp" class="score p1-active">0</div>
         </div>
         <div class="divider"></div>
-        <div id="p2Area" class="pane" onclick="handleInput(2)">
-            <div class="label">OPPONENT (2)</div>
+        <div id="p2Area" class="pane">
+            <div class="label">OPP (✌️)</div>
             <div id="p2Disp" class="score p2-active">0</div>
         </div>
     </div>
 
     <div id="footer">
-        [1,2,3,4,5,0] Keys | [9] Reload | [Enter] Multi-Click<br>
-        <a href="https://github.com/judhi/madel_score/" target="_blank">github.com/judhi/madel_score</a>
+        1:You | 2:Opp | 3:Undo | 4:Report<br>
+        Triple-check validation enabled (0.75s)
     </div>
 
     <script>
-        let p1 = 0, p2 = 0, s1 = 0, s2 = 0;
-        let history = []; 
-        let currentMode = 'DEUCE'; 
-        const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
-        let isGameOver = false, voiceUnlocked = false, isInputLocked = false;
-        let clickCount = 0, clickTimer = null;
-
-        const vals = ["0", "15", "30", "40", "AD"];
-        const voiceVals = ["Zero", "15", "30", "40", "AD"];
+        let p1 = 0, p2 = 0, s1 = 0, s2 = 0, history = [];
+        let currentMode = 'DEUCE', isGameOver = false, voiceUnlocked = false, isInputLocked = false;
+        const vals = ["0", "15", "30", "40", "AD"], voiceVals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
+
+        let gestureBuffer = [];
+        const FRAME_THRESHOLD = 3;
+        const FRAME_INTERVAL = 250; 
+        let lastFrameTime = 0;
 
         function init() {
             const savedMode = localStorage.getItem('madel_mode');
-            if (savedMode) {
-                currentMode = savedMode;
-                document.getElementById('modeBtn').innerText = savedMode + " (0)";
-            }
+            if (savedMode) { currentMode = savedMode; document.getElementById('modeBtn').innerText = savedMode + " (0)"; }
             render();
+            setupGestures();
         }
 
-        function openModal() {
-            if (p1 === 0 && p2 === 0) document.getElementById('modeModal').style.display = 'flex';
-            else announce("Reset score to change mode.");
+        function setupGestures() {
+            const videoElement = document.getElementById('input_video');
+            const statusElement = document.getElementById('gestureStatus');
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.8, minTrackingConfidence: 0.8 });
+
+            hands.onResults((results) => {
+                const now = Date.now();
+                if (isInputLocked || now - lastFrameTime < FRAME_INTERVAL) return;
+                lastFrameTime = now;
+
+                if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                    gestureBuffer = [];
+                    statusElement.innerText = "WAITING...";
+                    return;
+                }
+                
+                const landmarks = results.multiHandLandmarks[0];
+                const fingers = [8, 12, 16, 20].map(i => landmarks[i].y < landmarks[i-2].y);
+                const extendedCount = fingers.filter(Boolean).length;
+                
+                let detectedAction = null;
+                if (extendedCount === 1) detectedAction = "YOU";
+                else if (extendedCount === 2) detectedAction = "OPP";
+                else if (extendedCount === 3) detectedAction = "UNDO";
+                else if (extendedCount === 4) detectedAction = "REPORT";
+
+                if (detectedAction) {
+                    gestureBuffer.push(detectedAction);
+                    statusElement.innerText = `${detectedAction} ${gestureBuffer.length}/3`;
+                } else {
+                    gestureBuffer = [];
+                }
+
+                if (gestureBuffer.length >= FRAME_THRESHOLD) {
+                    const consistent = gestureBuffer.every(g => g === gestureBuffer[0]);
+                    if (consistent) {
+                        const finalAction = gestureBuffer[0];
+                        gestureBuffer = [];
+                        executeAction(finalAction);
+                    } else { gestureBuffer.shift(); }
+                }
+            });
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => { await hands.send({image: videoElement}); },
+                width: 640, height: 480
+            });
+            camera.start().then(() => { statusElement.innerText = "READY"; });
         }
 
-        function closeModal() { document.getElementById('modeModal').style.display = 'none'; }
-
-        function selectMode(choice) {
-            currentMode = choice;
-            localStorage.setItem('madel_mode', choice);
-            document.getElementById('modeBtn').innerText = choice + " (0)";
-            closeModal();
-            if (!voiceUnlocked) unlockVoice();
-            else announce("Mode " + choice);
-        }
-
-        function cycleMode() {
-            if (p1 !== 0 || p2 !== 0) { announce("Reset score to change mode."); return; }
-            let idx = modes.indexOf(currentMode);
-            let nextIdx = (idx + 1) % modes.length;
-            selectMode(modes[nextIdx]);
-        }
-
-        function toggleFullscreen(btn = document.getElementById('fsBtn')) {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => { console.log(err); });
-            else document.exitFullscreen();
-            if (btn) btn.blur();
-            if (!voiceUnlocked) unlockVoice();
-        }
-
-        document.addEventListener('fullscreenchange', () => {
-            const btn = document.getElementById('fsBtn');
-            btn.innerText = document.fullscreenElement ? "EXIT (5)" : "FULL (5)";
-        });
-
-        function announce(text) {
-            if (!voiceUnlocked) return;
-            synth.cancel();
-            const msg = new SpeechSynthesisUtterance(text);
-            const voices = synth.getVoices();
-            let femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google UK English Female') || v.name.includes('Samantha') || v.name.includes('Zira'));
-            if (femaleVoice) { msg.voice = femaleVoice; msg.pitch = 1.0; } else { msg.pitch = 1.3; }
-            msg.rate = 1.1; 
-            synth.speak(msg);
-        }
-
-        function unlockVoice() {
-            if (voiceUnlocked) return false;
-            voiceUnlocked = true;
-            announce("Umpire ready");
-            lockInput();
-            return true;
+        function executeAction(action) {
+            if (isInputLocked) return;
+            if (action === "YOU") handleInput(1);
+            else if (action === "OPP") handleInput(2);
+            else if (action === "UNDO") uiUndo();
+            else if (action === "REPORT") uiAnnounce();
         }
 
         function lockInput() {
             isInputLocked = true;
-            document.getElementById('courtArea').classList.add('locked');
+            const header = document.getElementById('mainHeader');
+            const bar = document.getElementById('lockoutTimer');
+            
+            header.classList.add('locked-header');
+            
+            bar.style.transition = "none";
+            bar.style.transform = "scaleX(1)";
+            setTimeout(() => {
+                bar.style.transition = "transform 5s linear";
+                bar.style.transform = "scaleX(0)";
+            }, 50);
+
             setTimeout(() => {
                 isInputLocked = false;
-                document.getElementById('courtArea').classList.remove('locked');
-            }, 1000);
+                header.classList.remove('locked-header');
+                document.getElementById('gestureStatus').innerText = "READY";
+            }, 5000); 
         }
 
-        function uiUndo(btn) { if (!voiceUnlocked) unlockVoice(); undo(); if(btn) btn.blur(); }
-        function uiAnnounce(btn) { if (!voiceUnlocked) unlockVoice(); else announce(getFullStatus()); if(btn) btn.blur(); }
-
-        function getFullStatus() {
-            let gameScore = "";
-            if (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT') {
-                gameScore = (p1 >= 3 && p2 >= 3 && currentMode === 'DEUCE') ? 
-                    (p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent")) :
-                    `${voiceVals[p1] || p1}, ${voiceVals[p2] || p2}`;
-            } else {
-                gameScore = `${p1} to ${p2}`;
-            }
-            let setScore = s1 === s2 ? `Set is ${s1} games all` : (s1 > s2 ? `You lead ${s1} to ${s2}` : `Opponent leads ${s2} to ${s1}`);
-            return `Score is ${gameScore}. ${setScore}.`;
+        function handleScore(player) {
+            history.push({p1, p2, s1, s2, isGameOver});
+            if (player === 1) p1++; else p2++;
+            
+            if (currentMode === 'GOLDEN POINT') { if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; } }
+            else if (currentMode === 'DEUCE') { if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
+            else { let limit = parseInt(currentMode); if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
+            
+            if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}.`);
+            else announce(getVoiceScore());
+            
+            render();
+            lockInput();
         }
 
         function render() {
@@ -185,13 +200,8 @@
             d1.classList.remove('win-text'); d2.classList.remove('win-text');
             const isTennis = (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT');
             if (isGameOver) {
-                if (p1 > p2) {
-                    d1.innerText = "WIN"; d1.classList.add('win-text');
-                    d2.innerText = isTennis ? (vals[p2] || "40") : p2;
-                } else {
-                    d2.innerText = "WIN"; d2.classList.add('win-text');
-                    d1.innerText = isTennis ? (vals[p1] || "40") : p1;
-                }
+                if (p1 > p2) { d1.innerText = "WIN"; d1.classList.add('win-text'); d2.innerText = isTennis ? (vals[p2] || "40") : p2; }
+                else { d2.innerText = "WIN"; d2.classList.add('win-text'); d1.innerText = isTennis ? (vals[p1] || "40") : p1; }
                 return;
             }
             if (isTennis) {
@@ -200,45 +210,8 @@
                     if (p1 === p2) { d1.innerText = "40"; d2.innerText = "40"; }
                     else if (p1 > p2) { d1.innerText = "AD"; d2.innerText = "40"; }
                     else { d1.innerText = "40"; d2.innerText = "AD"; }
-                } else {
-                    d1.innerText = vals[p1] || p1;
-                    d2.innerText = vals[p2] || p2;
-                }
-            } else {
-                d1.innerText = p1; d2.innerText = p2;
-            }
-        }
-
-        function handleScore(player) {
-            if (isInputLocked) return;
-            history.push({p1, p2, s1, s2, isGameOver});
-            if (player === 1) p1++; else p2++;
-            if (currentMode === 'GOLDEN POINT') {
-                if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; }
-            } else if (currentMode === 'DEUCE') {
-                if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) { isGameOver = true; if(p1 > p2) s1++; else s2++; }
-            } else {
-                let limit = parseInt(currentMode);
-                if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; }
-            }
-            if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}. Score ${s1}, ${s2}`);
-            else if (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT') {
-                if (currentMode === 'DEUCE' && p1 >= 3 && p2 >= 3) announce(p1 === p2 ? "Deuce" : (p1 > p2 ? "Advantage You" : "Advantage Opponent"));
-                else announce(`${voiceVals[p1] || p1}, ${voiceVals[p2] || p2}`);
-            } else announce(`${p1}, ${p2}`);
-            const areaId = player === 1 ? 'p1Area' : 'p2Area';
-            document.getElementById(areaId).classList.add('flash');
-            setTimeout(() => document.getElementById(areaId).classList.remove('flash'), 100);
-            render(); lockInput();
-        }
-
-        function undo() {
-            if (isInputLocked) return;
-            if (history.length > 0) {
-                const last = history.pop();
-                p1 = last.p1; p2 = last.p2; s1 = last.s1; s2 = last.s2; isGameOver = last.isGameOver;
-                render(); announce("Undo."); lockInput();
-            }
+                } else { d1.innerText = vals[p1] || p1; d2.innerText = vals[p2] || p2; }
+            } else { d1.innerText = p1; d2.innerText = p2; }
         }
 
         function handleInput(player) {
@@ -248,30 +221,28 @@
             else handleScore(player);
         }
 
+        function uiUndo() { if (isInputLocked) return; if (!voiceUnlocked) { unlockVoice(); return; } if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
+        function uiAnnounce() { if (isInputLocked) return; if (!voiceUnlocked) { unlockVoice(); return; } announce(`Score is ${getVoiceScore()}.`); lockInput(); }
+        function getVoiceScore() { if (currentMode==='DEUCE'||currentMode==='GOLDEN POINT') { if (currentMode==='DEUCE'&&p1>=3&&p2>=3) return p1===p2?"Deuce":(p1>p2?"Advantage You":"Advantage Opponent"); return `${voiceVals[p1]||p1}, ${voiceVals[p2]||p2}`; } return `${p1}, ${p2}`; }
+        function announce(t) { if (!voiceUnlocked) return; synth.cancel(); const m = new SpeechSynthesisUtterance(t); m.rate = 1.1; synth.speak(m); }
+        function unlockVoice() { voiceUnlocked = true; announce("Umpire ready"); lockInput(); }
+        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+        function openModal() { if (p1===0 && p2===0) { let nextIdx = (modes.indexOf(currentMode)+1)%modes.length; selectMode(modes[nextIdx]); } }
+        const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
+        function selectMode(choice) { currentMode = choice; localStorage.setItem('madel_mode', choice); document.getElementById('modeBtn').innerText = choice + " (0)"; announce("Mode " + choice); }
+
         document.addEventListener('keyup', (e) => {
-            const key = e.key;
             if (isInputLocked) return;
-            if (key === '1') handleInput(1);
-            else if (key === '2') handleInput(2);
-            else if (key === '3') uiUndo();
-            else if (key === '4') uiAnnounce();
-            else if (key === '5') toggleFullscreen();
-            else if (key === '0') cycleMode();
-            else if (key === '9') location.reload();
-            else if (key.toLowerCase() === 'enter') {
-                if (!voiceUnlocked) { unlockVoice(); return; }
-                if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); lockInput(); return; }
-                clickCount++;
-                if (clickTimer) clearTimeout(clickTimer);
-                clickTimer = setTimeout(() => {
-                    if (clickCount === 1) handleScore(1);
-                    else if (clickCount === 2) handleScore(2);
-                    else if (clickCount === 3) undo();
-                    else if (clickCount >= 4) announce(getFullStatus());
-                    clickCount = 0;
-                }, 500);
-            }
+            const k = e.key;
+            if (k === '1') handleInput(1);
+            else if (k === '2') handleInput(2);
+            else if (k === '3') uiUndo();
+            else if (k === '4') uiAnnounce();
+            else if (k === '5') toggleFullscreen();
+            else if (k === '9') location.reload();
+            else if (k === '0') { if(p1===0&&p2===0) { let nextIdx = (modes.indexOf(currentMode)+1)%modes.length; selectMode(modes[nextIdx]); } }
         });
+
         init();
     </script>
 </body>
