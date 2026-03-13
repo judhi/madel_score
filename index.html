@@ -8,45 +8,39 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <style>
         :root { --p1-color: #00e676; --p2-color: #ff5252; --bg: #000; --header-bg: #111; --lock-red: #d32f2f; }
-        body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; }
+        body { background: var(--bg); color: #fff; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; overflow: hidden; touch-action: manipulation; }
         
-        header { background: var(--header-bg); padding: 6px 10px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: background 0.3s ease; position: relative; z-index: 5; }
+        header { background: var(--header-bg); padding: 6px 10px; border-bottom: 1px solid #333; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: background 0.3s ease; position: relative; z-index: 100; }
         .locked-header { background: var(--lock-red) !important; }
-        #brand { font-weight: bold; font-size: 14px; color: #fff; letter-spacing: 1px; }
-        .toolbar { display: flex; gap: 4px; width: 100%; justify-content: center; flex-wrap: wrap; }
-        .btn { background: #333; color: #fff; border: 1px solid #555; padding: 4px 6px; border-radius: 8px; font-size: 8px; cursor: pointer; outline: none; flex: 1; min-width: 50px; max-width: 70px; }
         
-        /* Compact Preview - Bottom Right */
-        #videoContainer { position: fixed; bottom: 40px; right: 10px; width: 60px; height: 45px; border: 1px solid #444; border-radius: 4px; overflow: hidden; z-index: 20; background: #000; pointer-events: none; }
+        #videoContainer { position: fixed; bottom: 45px; right: 10px; width: 60px; height: 45px; border: 1px solid #444; border-radius: 4px; overflow: hidden; z-index: 50; background: #000; pointer-events: none; }
         #input_video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #gestureStatus { position: fixed; bottom: 90px; right: 10px; font-size: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; z-index: 20; min-width: 60px; text-align: center; }
+        #gestureStatus { position: fixed; bottom: 95px; right: 10px; font-size: 8px; color: #fff; font-weight: bold; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; z-index: 50; min-width: 60px; text-align: center; }
 
-        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; }
+        #lockoutTimer { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: #fff; z-index: 1000; transform: scaleX(0); transform-origin: left; pointer-events: none; }
 
-        .set-score-bar { background: #1a1a1a; padding: 4px; font-size: 16px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; }
+        .set-score-bar { background: #1a1a1a; padding: 4px; font-size: 16px; font-weight: bold; color: #888; border-bottom: 1px solid #333; display: flex; justify-content: space-around; z-index: 10; }
         .set-score-bar span { color: #fff; margin: 0 10px; }
         
-        .court { flex: 1; display: flex; flex-direction: row; }
-        .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; }
-        .score { font-size: 32vw; font-weight: 900; line-height: 1; margin: 0; }
-        .label { font-size: 2.5vw; color: #444; text-transform: uppercase; letter-spacing: 2px; }
+        .court { flex: 1; display: flex; flex-direction: row; z-index: 5; }
+        .pane { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .score { font-size: 32vw; font-weight: 900; line-height: 1; margin: 0; pointer-events: none; }
+        .label { font-size: 2.5vw; color: #444; text-transform: uppercase; pointer-events: none; }
         .divider { width: 1px; background: #222; }
         
         .p1-active { color: var(--p1-color) !important; }
         .p2-active { color: var(--p2-color) !important; }
         .win-text { font-size: 22vw !important; color: #fff !important; }
         
-        #footer { background: #111; padding: 6px; font-size: 9px; color: #444; border-top: 1px solid #333; }
-        .locked-interaction { pointer-events: none; }
+        #footer { background: #111; padding: 6px; font-size: 9px; color: #444; border-top: 1px solid #333; z-index: 10; }
+        .is-locked-out { pointer-events: none !important; }
     </style>
 </head>
-<body onclick="kickstartVoice()">
+<body id="appBody" onclick="kickstartVoice()">
 
     <div id="lockoutTimer"></div>
     <div id="gestureStatus">BOOT...</div>
-    <div id="videoContainer">
-        <video id="input_video" autoplay playsinline muted></video>
-    </div>
+    <div id="videoContainer"><video id="input_video" autoplay playsinline muted></video></div>
 
     <header id="mainHeader">
         <span id="brand">MADEL SCORE by JPS</span>
@@ -55,7 +49,7 @@
             <button class="btn" onclick="uiUndo()">UNDO (3)</button>
             <button class="btn" onclick="uiAnnounce()">REPORT (4)</button>
             <button id="fsBtn" class="btn" onclick="toggleFullscreen()">FULL (5)</button>
-            <button id="zoomBtn" class="btn" onclick="toggleZoom(this)">ZOOM: OFF</button>
+            <button id="zoomBtn" class="btn" onclick="toggleZoom()">ZOOM: OFF</button>
         </div>
     </header>
 
@@ -65,225 +59,169 @@
     </div>
 
     <div id="courtArea" class="court">
-        <div id="p1Area" class="pane">
+        <div id="p1Area" class="pane" onclick="handleInput(1, event)">
             <div class="label">YOU (☝️)</div>
             <div id="p1Disp" class="score p1-active">0</div>
         </div>
         <div class="divider"></div>
-        <div id="p2Area" class="pane">
+        <div id="p2Area" class="pane" onclick="handleInput(2, event)">
             <div class="label">OPP (✌️)</div>
             <div id="p2Disp" class="score p2-active">0</div>
         </div>
     </div>
 
     <div id="footer">
-        1:You | 2:Opp | 3:Undo | 4:Report | 5:Full | 0:Mode | 9:Reload
+        ✌️:Undo | ☝️:You | ✋:Opp | 5s Lock Active
     </div>
 
     <script>
         let p1 = 0, p2 = 0, s1 = 0, s2 = 0, history = [];
-        let currentMode = 'DEUCE', isGameOver = false, voiceUnlocked = false, isInputLocked = false;
-        let isZoomed = false;
+        let currentMode = 'DEUCE', isGameOver = false, voiceUnlocked = false, isInputLocked = false, isZoomed = false;
+        const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
         const vals = ["0", "15", "30", "40", "AD"], voiceVals = ["Zero", "15", "30", "40", "AD"];
         const synth = window.speechSynthesis;
-
-        let gestureBuffer = [];
-        const FRAME_THRESHOLD = 2; // Reduced to 2 consecutive frames as requested
-        const FRAME_INTERVAL = 250; 
-        let lastFrameTime = 0;
+        let gestureBuffer = [], clickCount = 0, clickTimer = null;
 
         function init() {
             const savedMode = localStorage.getItem('madel_mode');
             if (savedMode) { currentMode = savedMode; document.getElementById('modeBtn').innerText = savedMode + " (0)"; }
             render();
             setupGestures();
-            // Load voices early
-            synth.getVoices();
         }
 
-        function toggleZoom(btn) {
-            isZoomed = !isZoomed;
-            btn.innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF";
-            const video = document.getElementById('input_video');
-            video.style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)";
-            if(voiceUnlocked) announce("Zoom " + (isZoomed ? "on" : "off"));
-            btn.blur();
-        }
-
-        // --- UNIVERSAL ANDROID VOICE FIX ---
         function kickstartVoice() {
-            if (voiceUnlocked) {
-                // Keep engine alive on subsequent taps
-                const keepAlive = new SpeechSynthesisUtterance("");
-                keepAlive.volume = 0;
-                synth.speak(keepAlive);
-                return;
-            }
-            synth.cancel(); 
-            const silent = new SpeechSynthesisUtterance("Starting");
-            silent.volume = 0;
-            synth.speak(silent);
+            if (voiceUnlocked) return;
             voiceUnlocked = true;
-            setTimeout(() => { announce("Umpire ready"); }, 100);
+            synth.cancel();
+            const m = new SpeechSynthesisUtterance("Umpire ready");
+            m.rate = 1.0; synth.speak(m);
             lockInput();
-        }
-
-        function setupGestures() {
-            const videoElement = document.getElementById('input_video');
-            const statusElement = document.getElementById('gestureStatus');
-            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-
-            hands.onResults((results) => {
-                const now = Date.now();
-                if (isInputLocked || now - lastFrameTime < FRAME_INTERVAL) return;
-                lastFrameTime = now;
-
-                if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-                    gestureBuffer = [];
-                    statusElement.innerText = "WAITING...";
-                    return;
-                }
-                
-                const landmarks = results.multiHandLandmarks[0];
-                if (isZoomed) {
-                    const x = landmarks[0].x;
-                    const y = landmarks[0].y;
-                    if (x < 0.25 || x > 0.75 || y < 0.25 || y > 0.75) {
-                        statusElement.innerText = "CENTER HAND";
-                        return;
-                    }
-                }
-
-                const fingers = [8, 12, 16, 20].map(i => landmarks[i].y < landmarks[i-2].y);
-                const extendedCount = fingers.filter(Boolean).length;
-                
-                let detectedAction = null;
-                if (extendedCount === 1) detectedAction = "YOU";
-                else if (extendedCount === 2) detectedAction = "OPP";
-                else if (extendedCount === 3) detectedAction = "UNDO";
-                else if (extendedCount === 4) detectedAction = "REPORT";
-
-                if (detectedAction) {
-                    gestureBuffer.push(detectedAction);
-                    statusElement.innerText = `${detectedAction} ${gestureBuffer.length}/2`;
-                } else { gestureBuffer = []; }
-
-                if (gestureBuffer.length >= FRAME_THRESHOLD) {
-                    const consistent = gestureBuffer.every(g => g === gestureBuffer[0]);
-                    if (consistent) {
-                        executeAction(gestureBuffer[0]);
-                        gestureBuffer = [];
-                    } else { gestureBuffer.shift(); }
-                }
-            });
-
-            const camera = new Camera(videoElement, {
-                onFrame: async () => { await hands.send({image: videoElement}); },
-                width: 640, height: 480
-            });
-            camera.start().then(() => { statusElement.innerText = "READY"; });
-        }
-
-        function executeAction(action) {
-            if (isInputLocked) return;
-            if (action === "YOU") handleInput(1);
-            else if (action === "OPP") handleInput(2);
-            else if (action === "UNDO") uiUndo();
-            else if (action === "REPORT") uiAnnounce();
         }
 
         function lockInput() {
             isInputLocked = true;
-            const header = document.getElementById('mainHeader');
+            document.getElementById('mainHeader').classList.add('locked-header');
+            document.body.classList.add('is-locked-out');
             const bar = document.getElementById('lockoutTimer');
-            const court = document.getElementById('courtArea');
-            header.classList.add('locked-header');
-            court.classList.add('locked-interaction');
             bar.style.transition = "none";
             bar.style.transform = "scaleX(1)";
-            setTimeout(() => {
-                bar.style.transition = "transform 5s linear";
-                bar.style.transform = "scaleX(0)";
-            }, 50);
+            setTimeout(() => { bar.style.transition = "transform 5s linear"; bar.style.transform = "scaleX(0)"; }, 50);
             setTimeout(() => {
                 isInputLocked = false;
-                header.classList.remove('locked-header');
-                court.classList.remove('locked-interaction');
-                document.getElementById('gestureStatus').innerText = "READY";
-            }, 5000); 
+                document.getElementById('mainHeader').classList.remove('locked-header');
+                document.body.classList.remove('is-locked-out');
+            }, 5000);
+        }
+
+        function setupGestures() {
+            const video = document.getElementById('input_video');
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            hands.onResults((results) => {
+                if (isInputLocked || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+                const landmarks = results.multiHandLandmarks[0];
+                if (isZoomed && (landmarks[0].x < 0.25 || landmarks[0].x > 0.75)) return;
+                const fingers = [8, 12, 16, 20].map(i => landmarks[i].y < landmarks[i-2].y);
+                const count = fingers.filter(Boolean).length;
+                let act = (count === 1) ? "YOU" : (count === 2) ? "OPP" : (count === 3) ? "UNDO" : (count === 4) ? "REPORT" : null;
+                if (act) {
+                    gestureBuffer.push(act);
+                    if (gestureBuffer.length >= 2 && gestureBuffer.every(v => v === act)) {
+                        gestureBuffer = [];
+                        if (act === "YOU") handleInput(1);
+                        else if (act === "OPP") handleInput(2);
+                        else if (act === "UNDO") uiUndo();
+                        else if (act === "REPORT") uiAnnounce();
+                    }
+                } else { gestureBuffer = []; }
+            });
+            new Camera(video, { onFrame: async () => { await hands.send({image: video}); }, width: 640, height: 480 }).start();
+        }
+
+        function handleInput(player, event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
+            if (isInputLocked) return;
+            if (!voiceUnlocked) { kickstartVoice(); return; }
+            if (isGameOver) { 
+                p1 = 0; p2 = 0; isGameOver = false; 
+                render(); 
+                announce("New game. Score is " + s1 + " games to " + s2); 
+                lockInput(); 
+                return; 
+            }
+            handleScore(player);
         }
 
         function handleScore(player) {
             history.push({p1, p2, s1, s2, isGameOver});
             if (player === 1) p1++; else p2++;
-            if (currentMode === 'GOLDEN POINT') { if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; } }
-            else if (currentMode === 'DEUCE') { if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
-            else { let limit = parseInt(currentMode); if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; } }
-            if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}.`);
+            
+            if (currentMode === 'GOLDEN POINT') { 
+                if (p1 === 4 || p2 === 4) { isGameOver = true; if(p1 === 4) s1++; else s2++; } 
+            } else if (currentMode === 'DEUCE') { 
+                if ((p1 > 3 && p1 - p2 >= 2) || (p2 > 3 && p2 - p1 >= 2)) { isGameOver = true; if(p1 > p2) s1++; else s2++; } 
+            } else { 
+                let limit = parseInt(currentMode); 
+                if (p1 + p2 >= limit) { isGameOver = true; if(p1 > p2) s1++; else s2++; } 
+            }
+            
+            if (isGameOver) announce(`Game to ${player === 1 ? 'you' : 'opponent'}. Set score is ${s1} to ${s2}`);
             else announce(getVoiceScore());
+            
             render();
             lockInput();
         }
 
         function render() {
-            const d1 = document.getElementById('p1Disp'), d2 = document.getElementById('p2Disp');
             document.getElementById('set1').innerText = s1;
             document.getElementById('set2').innerText = s2;
+            const d1 = document.getElementById('p1Disp'), d2 = document.getElementById('p2Disp');
             d1.classList.remove('win-text'); d2.classList.remove('win-text');
             const isTennis = (currentMode === 'DEUCE' || currentMode === 'GOLDEN POINT');
             if (isGameOver) {
                 if (p1 > p2) { d1.innerText = "WIN"; d1.classList.add('win-text'); d2.innerText = isTennis ? (vals[p2] || "40") : p2; }
                 else { d2.innerText = "WIN"; d2.classList.add('win-text'); d1.innerText = isTennis ? (vals[p1] || "40") : p1; }
-                return;
-            }
-            if (isTennis) {
-                const deuce = (p1 >= 3 && p2 >= 3);
-                if (currentMode === 'DEUCE' && deuce) {
+            } else if (isTennis) {
+                if (currentMode === 'DEUCE' && p1 >= 3 && p2 >= 3) {
                     if (p1 === p2) { d1.innerText = "40"; d2.innerText = "40"; }
-                    else if (p1 > p2) { d1.innerText = "AD"; d2.innerText = "40"; }
-                    else { d1.innerText = "40"; d2.innerText = "AD"; }
+                    else { d1.innerText = (p1 > p2) ? "AD" : "40"; d2.innerText = (p2 > p1) ? "AD" : "40"; }
                 } else { d1.innerText = vals[p1] || p1; d2.innerText = vals[p2] || p2; }
             } else { d1.innerText = p1; d2.innerText = p2; }
         }
 
-        function handleInput(player) {
-            if (isInputLocked) return;
-            if (!voiceUnlocked) { kickstartVoice(); return; }
-            if (isGameOver) { p1 = 0; p2 = 0; isGameOver = false; render(); announce("New game"); lockInput(); } 
-            else handleScore(player);
-        }
-
-        function uiUndo() { if (isInputLocked) return; if (!voiceUnlocked) { kickstartVoice(); return; } if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
-        function uiAnnounce() { if (isInputLocked) return; if (!voiceUnlocked) { kickstartVoice(); return; } announce(`Score is ${getVoiceScore()}.`); lockInput(); }
+        function announce(t) { if (!voiceUnlocked) return; synth.cancel(); const m = new SpeechSynthesisUtterance(t); m.rate = 1.0; synth.speak(m); }
         function getVoiceScore() { if (currentMode==='DEUCE'||currentMode==='GOLDEN POINT') { if (currentMode==='DEUCE'&&p1>=3&&p2>=3) return p1===p2?"Deuce":(p1>p2?"Advantage You":"Advantage Opponent"); return `${voiceVals[p1]||p1}, ${voiceVals[p2]||p2}`; } return `${p1}, ${p2}`; }
         
-        function announce(t) { 
-            if (!voiceUnlocked) return; 
-            synth.cancel(); 
-            const m = new SpeechSynthesisUtterance(t); 
-            m.lang = 'en-US'; 
-            m.rate = 1.0; 
-            const voices = synth.getVoices();
-            if (voices.length > 0) m.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-            synth.speak(m); 
-        }
+        function uiUndo() { if (isInputLocked) return; if (history.length > 0) { const l = history.pop(); p1=l.p1; p2=l.p2; s1=l.s1; s2=l.s2; isGameOver=l.isGameOver; render(); announce("Undo."); lockInput(); } }
+        function uiAnnounce() { if (isInputLocked) return; announce(`Score is ${getVoiceScore()}. Set score is ${s1} to ${s2}`); lockInput(); }
+        function toggleZoom() { isZoomed = !isZoomed; document.getElementById('zoomBtn').innerText = isZoomed ? "ZOOM: 2X" : "ZOOM: OFF"; document.getElementById('input_video').style.transform = isZoomed ? "scaleX(-2) scaleY(2)" : "scaleX(-1) scaleY(1)"; }
+        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+        function openModal() { if(p1===0 && p2===0) { let next = (modes.indexOf(currentMode)+1)%modes.length; currentMode = modes[next]; localStorage.setItem('madel_mode', currentMode); document.getElementById('modeBtn').innerText = currentMode + " (0)"; announce("Mode " + currentMode); } }
 
-        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); if(!voiceUnlocked) kickstartVoice(); }
-        const modes = ['DEUCE', 'GOLDEN POINT', '16-POINT', '24-POINT', '32-POINT'];
-        function selectMode(choice) { currentMode = choice; localStorage.setItem('madel_mode', choice); document.getElementById('modeBtn').innerText = choice + " (0)"; if(voiceUnlocked) announce("Mode " + choice); }
-
-        document.addEventListener('keyup', (e) => {
+        document.addEventListener('keydown', (e) => {
             if (isInputLocked) return;
             const k = e.key;
-            if (k === '1') handleInput(1);
-            else if (k === '2') handleInput(2);
-            else if (k === '3') uiUndo();
-            else if (k === '4') uiAnnounce();
-            else if (k === '5') toggleFullscreen();
-            else if (k === '9') location.reload();
-            else if (k === '0') { if(p1===0&&p2===0) { let nextIdx = (modes.indexOf(currentMode)+1)%modes.length; selectMode(modes[nextIdx]); } }
+            if (k === 'Enter') {
+                e.preventDefault();
+                if (!voiceUnlocked) { kickstartVoice(); return; }
+                if (isGameOver) { handleInput(0); return; } // Generic reset call
+                clickCount++; if (clickTimer) clearTimeout(clickTimer);
+                clickTimer = setTimeout(() => {
+                    if (clickCount === 1) handleScore(1);
+                    else if (clickCount === 2) handleScore(2);
+                    else if (clickCount === 3) uiUndo();
+                    else if (clickCount >= 4) uiAnnounce();
+                    clickCount = 0;
+                }, 500);
+            } else {
+                if (k === '1') handleInput(1);
+                else if (k === '2') handleInput(2);
+                else if (k === '3') uiUndo();
+                else if (k === '4') uiAnnounce();
+                else if (k === '5') toggleFullscreen();
+                else if (k === '0') openModal();
+                else if (k === '9') location.reload();
+            }
         });
 
         init();
